@@ -16,11 +16,9 @@
 
 - Blazing fast HTTP/1.1 and HTTP/2 benchmarking
 - Real-time CLI metrics with latencies, throughput, and errors
-- Lightweight and dependency-free binary
 - JSON and CSV output formats
 - Custom headers, payloads, and methods
 - Concurrency and rate controls
-- Built-in duration and warm-up configuration
 
 ---
 
