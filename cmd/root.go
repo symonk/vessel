@@ -37,7 +37,9 @@ var rootCmd = &cobra.Command{
 	Short: "HTTP Benchmarking utility",
 	Run: func(cmd *cobra.Command, args []string) {
 		collector := collector.New()
-		requester := requester.New(collector)
+		requester := requester.New(collector,
+			timeout,
+		)
 		requester.Go()
 		requester.Wait()
 		fmt.Println(collector.Summarise())
