@@ -25,10 +25,7 @@ func TestMethodsAreValidatedCorrectly(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			got := Allowed.Permitted(test.verb)
-			if got != test.allowed {
-				assert.Equal(t, Allowed.Permitted(test.verb), test.allowed)
-			}
+			assert.Equal(t, Allowed.Permitted(test.verb), test.allowed)
 		})
 	}
 }
