@@ -46,6 +46,8 @@ func ExecuteContext(ctx context.Context) error {
 var (
 	// Defines flag variables for ease of use in commands.
 	versionSet  bool
+	quietSet    bool
+	maxRPS      int
 	concurrency int
 	duration    time.Duration
 	output      string
@@ -58,6 +60,8 @@ var (
 
 func init() {
 	rootCmd.Flags().BoolVarP(&versionSet, "version", "v", false, "Shows the version of vessel")
+	rootCmd.Flags().BoolVarP(&quietSet, "quiet", "q", false, "Suppresses output")
+	rootCmd.Flags().IntVarP(&maxRPS, "max-rps", "r", 0, "Rate limit requests per second")
 	rootCmd.Flags().IntVarP(&concurrency, "concurrency", "c", 10, "Number of concurrent requests")
 	rootCmd.Flags().DurationVarP(&duration, "duration", "d", 0, "Duration to send requests for")
 	rootCmd.Flags().StringVarP(&output, "output", "o", "", "File format to output")
