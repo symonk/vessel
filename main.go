@@ -1,7 +1,21 @@
 package main
 
-import "github.com/symonk/vessel/cmd"
+import (
+	"context"
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/symonk/vessel/cmd"
+)
 
 func main() {
-	cmd.Execute()
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
+	defer cancel()
+	if err := cmd.ExecuteContext(ctx); err != nil {
+		fmt.Println("error", err)
+		os.Exit(1)
+	}
+
 }
