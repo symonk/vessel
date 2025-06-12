@@ -89,3 +89,10 @@ Summary:
 | `--timeout`  | Request timeout                        |
 
 ---
+
+## ⚠️ Disclaimer
+
+Vessel is intended solely for **ethical performance testing** of web services you own or have explicit permission to test.  
+Any use of this tool for denial-of-service (DoS) attacks, stress-testing unauthorized systems, or illegal activity is **strictly prohibited**.
+
+The developers of Vessel are not responsible for any misuse or damages caused by this software.
