@@ -1,9 +1,10 @@
 package collector
 
+import "sync/atomic"
+
 type Collector interface {
-	RecordLatency()
-	RecordThroughput()
-	RecordStatus()
+	RecordSuccess(code int)
+	RecordFailure(code int)
 	Summarise() string
 }
 
@@ -11,15 +12,15 @@ type Collector interface {
 // the execution and can summarise those to an output
 // stream.
 type EventCollector struct {
+	seen atomic.Int64
 }
 
 func New() *EventCollector {
 	return &EventCollector{}
 }
 
-func (e *EventCollector) RecordLatency()    {}
-func (e *EventCollector) RecordThroughput() {}
-func (e *EventCollector) RecordStatus()     {}
+func (e *EventCollector) RecordSuccess(code int) {}
+func (e *EventCollector) RecordFailure(code int) {}
 func (e *EventCollector) Summarise() string {
 	return `Running 10s test @ https://yourwebsite.com
 50 connections

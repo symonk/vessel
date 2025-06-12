@@ -16,8 +16,9 @@ type CollectableTransport struct {
 
 // RoundTrip collects and publishes metrics to the collector for each individual
 // request/response.
-func (p *CollectableTransport) RoundTrip(request *http.Request) (*http.Response, error) {
-	return nil, nil
+func (c *CollectableTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	response, err := c.Next.RoundTrip(request)
+	return response, err
 }
 
 type Requester interface {
@@ -29,12 +30,13 @@ type Requester interface {
 // of that request until either the maximum count is reached
 // or the duration has been surpassed.
 type RequestSender struct {
-	client http.Client
+	client   http.Client
+	template *http.Request
 }
 
 // New instantiates a new instance of Requester and returns
 // the ptr to it.
-func New(collector collector.Collector, timeout time.Duration) *RequestSender {
+func New(collector collector.Collector, timeout time.Duration, template *http.Request) *RequestSender {
 	return &RequestSender{
 		client: http.Client{
 			Timeout: timeout,
@@ -43,6 +45,7 @@ func New(collector collector.Collector, timeout time.Duration) *RequestSender {
 				Next:      http.DefaultTransport,
 			},
 		},
+		template: template,
 	}
 }
 

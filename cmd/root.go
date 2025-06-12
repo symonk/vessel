@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -29,6 +30,7 @@ var (
 	http2       bool
 	hostHeader  string
 	userAgent   string
+	endpoint    string
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -37,8 +39,14 @@ var rootCmd = &cobra.Command{
 	Short: "HTTP Benchmarking utility",
 	Run: func(cmd *cobra.Command, args []string) {
 		collector := collector.New()
+		req, _ := http.NewRequest(
+			method,
+			args[0],
+			nil, // TODO: Allow body string or path to file for non GET
+		)
 		requester := requester.New(collector,
 			timeout,
+			req,
 		)
 		requester.Go()
 		requester.Wait()
@@ -67,5 +75,8 @@ func init() {
 
 	// Specify required flags
 	rootCmd.MarkFlagsOneRequired("concurrency", "duration")
+
+	// Only allow a single non flag argument, which is the url/endpoint.
+	rootCmd.Args = cobra.ExactArgs(1)
 
 }
