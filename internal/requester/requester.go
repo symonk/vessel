@@ -7,20 +7,6 @@ import (
 	"github.com/symonk/vessel/internal/collector"
 )
 
-// CollectableTransport enables publishing 'metrics' to
-// the collector as part of request->response flow.
-type CollectableTransport struct {
-	Collector collector.Collector
-	Next      http.RoundTripper
-}
-
-// RoundTrip collects and publishes metrics to the collector for each individual
-// request/response.
-func (c *CollectableTransport) RoundTrip(request *http.Request) (*http.Response, error) {
-	response, err := c.Next.RoundTrip(request)
-	return response, err
-}
-
 type Requester interface {
 	Go()
 	Wait()
@@ -40,9 +26,11 @@ func New(collector collector.Collector, timeout time.Duration, template *http.Re
 	return &RequestSender{
 		client: http.Client{
 			Timeout: timeout,
-			Transport: &CollectableTransport{
-				Collector: collector,
-				Next:      http.DefaultTransport,
+			Transport: &RateLimitingTransport{
+				Next: &CollectableTransport{
+					Collector: collector,
+					Next:      http.DefaultTransport,
+				},
 			},
 		},
 		template: template,
