@@ -31,6 +31,7 @@ var rootCmd = &cobra.Command{
 			cfg.Endpoint,
 			nil, // TODO: Allow body string or path to file for non GET
 		)
+
 		requester := requester.New(collector,
 			cfg.Timeout,
 			req,
@@ -59,6 +60,7 @@ func init() {
 	rootCmd.Flags().BoolVar(&cfg.HTTP2, "http2", false, "Enable HTTP/2 support")
 	rootCmd.Flags().StringVar(&cfg.Host, "host", "", "Set a custom HOST header")
 	rootCmd.Flags().StringVarP(&cfg.UserAgent, "agent", "u", "", "Set a custom user agent header")
+	rootCmd.Flags().StringVarP(&cfg.BasicAuth, "basic", "b", "", "Colon separated user:pass for basic auth header")
 
 	// Specify required flags
 	rootCmd.MarkFlagsOneRequired("concurrency", "duration")

@@ -7,7 +7,11 @@ import (
 	"github.com/symonk/vessel/internal/collector"
 )
 
+// Requester sends HTTP requests to a server (typically at scale) and
+// can be signalled to wait until all requests have finalized through
+// Wait()
 type Requester interface {
+	Do(request *http.Request) (*http.Response, error)
 	Go()
 	Wait()
 }

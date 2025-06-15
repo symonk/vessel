@@ -4,6 +4,8 @@ help:
 	@echo 'Usage:'
 	@sed -n 's/^##//p' ${MAKEFILE_LIST} | column -t -s ':' | sed -e 's/^/ /'
 
+## build: Build the executable for multiple platforms
+
 ## test: Execute all the tests and collect coverage information.
 .PHONY: test
 test:

@@ -2,6 +2,8 @@ package config
 
 import "time"
 
+// Config houses application-wide configuration, user supplied through the
+// command line
 type Config struct {
 	VersionSet  bool
 	QuietSet    bool
@@ -15,4 +17,10 @@ type Config struct {
 	Host        string
 	UserAgent   string
 	Endpoint    string
+	BasicAuth   string
+}
+
+// New instantiates a new config and returns a ptr to the instance
+func New() *Config {
+	return &Config{}
 }
