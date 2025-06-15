@@ -36,7 +36,16 @@ var rootCmd = &cobra.Command{
 			cfg.Timeout,
 			req,
 		)
-		requester.Go()
+		// command ctx already has the signalling capabilities.
+		// if duration is specified, wrap the ctx with that dead line
+		// to cause Go() to exit and Wait() to unblock.
+		ctx := cmd.Context()
+		var cancelFunc context.CancelFunc
+		if d := cfg.Duration; d != 0 {
+			ctx, cancelFunc = context.WithTimeout(ctx, d)
+			defer cancelFunc()
+		}
+		requester.Go(ctx)
 		requester.Wait()
 		fmt.Println(collector.Summarise())
 	},

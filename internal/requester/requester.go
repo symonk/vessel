@@ -1,6 +1,7 @@
 package requester
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -12,7 +13,7 @@ import (
 // Wait()
 type Requester interface {
 	Do(request *http.Request) (*http.Response, error)
-	Go()
+	Go(ctx context.Context)
 	Wait()
 }
 
@@ -41,5 +42,14 @@ func New(collector collector.Collector, timeout time.Duration, template *http.Re
 	}
 }
 
-func (u *RequestSender) Go()   {}
+func (u *RequestSender) Go(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			// Either the application received an interrupt signal or the
+			// user provided -d (duration flag has passed)
+			return
+		}
+	}
+}
 func (u *RequestSender) Wait() {}
