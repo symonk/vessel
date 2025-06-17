@@ -2,8 +2,7 @@ package config
 
 import "time"
 
-// Config houses application-wide configuration, user supplied through the
-// command line
+// Config encapsulates the runtime configuration options
 type Config struct {
 	VersionSet  bool
 	QuietSet    bool
