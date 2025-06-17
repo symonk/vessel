@@ -32,8 +32,9 @@ var rootCmd = &cobra.Command{
 			nil, // TODO: Allow body string or path to file for non GET
 		)
 
-		requester := requester.New(collector,
-			cfg.Timeout,
+		requester := requester.New(
+			cfg,
+			collector,
 			req,
 		)
 		// command ctx already has the signalling capabilities.

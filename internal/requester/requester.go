@@ -3,9 +3,10 @@ package requester
 import (
 	"context"
 	"net/http"
-	"time"
 
+	"github.com/symonk/turbo"
 	"github.com/symonk/vessel/internal/collector"
+	"github.com/symonk/vessel/internal/config"
 )
 
 // Requester sends HTTP requests to a server (typically at scale) and
@@ -21,16 +22,19 @@ type Requester interface {
 // of that request until either the maximum count is reached
 // or the duration has been surpassed.
 type RequestSender struct {
+	cfg      config.Config
 	client   http.Client
 	template *http.Request
+	pool     turbo.Pooler
 }
 
 // New instantiates a new instance of Requester and returns
 // the ptr to it.
-func New(collector collector.Collector, timeout time.Duration, template *http.Request) *RequestSender {
+func New(cfg config.Config, collector collector.Collector, template *http.Request) *RequestSender {
 	return &RequestSender{
+		cfg: cfg,
 		client: http.Client{
-			Timeout: timeout,
+			Timeout: cfg.Timeout,
 			Transport: &RateLimitingTransport{
 				Next: &CollectableTransport{
 					Collector: collector,
@@ -39,6 +43,7 @@ func New(collector collector.Collector, timeout time.Duration, template *http.Re
 			},
 		},
 		template: template,
+		pool:     turbo.NewPool(cfg.Concurrency),
 	}
 }
 
