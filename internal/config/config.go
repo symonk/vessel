@@ -19,6 +19,7 @@ type Config struct {
 	UserAgent   string
 	Endpoint    string
 	BasicAuth   string
+	Headers     []string
 }
 
 // New instantiates a new config and returns a ptr to the instance

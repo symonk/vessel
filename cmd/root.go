@@ -36,6 +36,7 @@ const (
 	hostHeaderFlag  = "host"
 	userAgentFlag   = "agent"
 	basicAuthFlag   = "basic"
+	headersFlag     = "headers"
 )
 
 const (
@@ -81,6 +82,14 @@ var rootCmd = &cobra.Command{
 		var out io.Writer = os.Stdout
 		if cfg.QuietSet {
 			out = io.Discard
+		}
+
+		// Append user provided HTTP headers if provided
+		// -H can be provided multiple times.
+		// Do this early so we can enforce the special case headers later.
+		if cmd.Flags().Changed(headersFlag) {
+			headers := validation.ParseHTTPHeaders(cfg.Headers).Clone()
+			templateRequest.Header = headers
 		}
 
 		// Handle basic auth if provided by the user
@@ -150,6 +159,7 @@ func init() {
 	rootCmd.Flags().StringVar(&cfg.Host, hostHeaderFlag, "", "Set a custom HOST header")
 	rootCmd.Flags().StringVarP(&cfg.UserAgent, userAgentFlag, "u", "", "Set a custom user agent header, this is always suffixed with the tools user agent")
 	rootCmd.Flags().StringVarP(&cfg.BasicAuth, basicAuthFlag, "b", "", "Colon separated user:pass for basic auth header")
+	rootCmd.Flags().StringSliceVarP(&cfg.Headers, headersFlag, "H", make([]string, 0), "Colon separated header:value for arbitrary HTTP headers (appendable)")
 
 	// Specify required flags
 	rootCmd.MarkFlagsMutuallyExclusive(concurrencyFlag, durationFlag)
