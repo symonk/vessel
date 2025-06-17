@@ -2,6 +2,7 @@ package collector
 
 import (
 	"fmt"
+	"io"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -38,21 +39,23 @@ func (s StatusBucket) Count() int {
 type Collector interface {
 	RecordSuccess(code int)
 	RecordFailure(code int, err error)
-	Summarise() string
+	Summarise()
 }
 
 // EventCollecter collects metrics of interest throughout
 // the execution and can summarise those to an output
 // stream.
 type EventCollector struct {
+	writer  io.Writer
 	seen    atomic.Int64
 	started time.Time
 	cfg     *config.Config
 	bucket  StatusBucket
 }
 
-func New(cfg *config.Config) *EventCollector {
+func New(writer io.Writer, cfg *config.Config) *EventCollector {
 	return &EventCollector{
+		writer:  writer,
 		cfg:     cfg,
 		started: time.Now(),
 		bucket: StatusBucket{
@@ -71,8 +74,8 @@ func (e *EventCollector) RecordFailure(code int, err error) {}
 // Summarise calculates the final summary prior to exiting.
 // Complex logic will occur in here based on all the kinds
 // of responses observed for the various requests sent.
-func (e *EventCollector) Summarise() string {
-	return fmt.Sprintf(`Running %s test against %s
+func (e *EventCollector) Summarise() {
+	fmt.Fprintf(e.writer, fmt.Sprintf(`Running %s test against %s
 %d connections.
 
 Summary:
@@ -89,5 +92,5 @@ Summary:
 		e.bucket.Count(),
 		time.Since(e.started),
 		e.bucket,
-	)
+	))
 }

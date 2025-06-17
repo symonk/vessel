@@ -1,4 +1,4 @@
-package verb
+package validation
 
 import (
 	"net/http"

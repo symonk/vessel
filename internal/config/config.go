@@ -1,6 +1,8 @@
 package config
 
-import "time"
+import (
+	"time"
+)
 
 // Config encapsulates the runtime configuration options
 type Config struct {

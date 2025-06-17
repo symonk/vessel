@@ -47,7 +47,7 @@ func New(cfg config.Config, collector collector.Collector, template *http.Reques
 	}
 }
 
-func (u *RequestSender) Go(ctx context.Context) {
+func (r *RequestSender) Go(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -55,6 +55,11 @@ func (u *RequestSender) Go(ctx context.Context) {
 			// user provided -d (duration flag has passed)
 			return
 		}
+
 	}
 }
-func (u *RequestSender) Wait() {}
+
+// TODO: Fix error handling into turbo's stop()
+func (r *RequestSender) Wait() {
+	_ = r.pool.Stop(true)
+}

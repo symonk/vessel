@@ -3,7 +3,9 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/symonk/vessel/internal/collector"
@@ -23,20 +25,45 @@ var cfg config.Config
 var rootCmd = &cobra.Command{
 	Use:   "vessel",
 	Short: "HTTP Benchmarking utility",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg.Endpoint = args[0]
-		collector := collector.New(&cfg)
-		req, _ := http.NewRequest(
+
+		// build the single template templateRequest to clone later.
+		templateRequest, err := http.NewRequest(
 			cfg.Method,
 			cfg.Endpoint,
 			nil, // TODO: Allow body string or path to file for non GET
 		)
+		/*
+			TODO:
+				QuietSet: TODO: Suppress output and be aware of suppressing output throughout.
+				MaxRPS: TODO: Somehow throttle max requests per second.
+				Concurrency: TODO: fan out worker pool of concurrency count.
+				Duration: TODO: Exit after fixed duration, smart use of contexts an proper cleanup.
+				Output: TODO: Allow JSON/CSV resultsets, keep it extensible for future.
+				Timeout: TODO: Per request timeouts (read etc).
+				HTTP2: TODO: Enable http2 negotiation, careful we are using our own transport impl (not implicit).
+				Host: TODO: Add Host header to requests.
+				UserAgent: TODO: Append user defined user agent, default to something identifying the tool.
+				BasicAuth: TODO: Add b64 authorisation basic auth header to requests.
+		*/
+		var out io.Writer = os.Stdout
+		if cfg.QuietSet {
+			out = io.Discard
+		}
+
+		collector := collector.New(out, &cfg)
+
+		if err != nil {
+			return fmt.Errorf("unable to create request: %v", err)
+		}
 
 		requester := requester.New(
 			cfg,
 			collector,
-			req,
+			templateRequest,
 		)
+
 		// command ctx already has the signalling capabilities.
 		// if duration is specified, wrap the ctx with that dead line
 		// to cause Go() to exit and Wait() to unblock.
@@ -48,7 +75,8 @@ var rootCmd = &cobra.Command{
 		}
 		requester.Go(ctx)
 		requester.Wait()
-		fmt.Println(collector.Summarise())
+		collector.Summarise()
+		return nil
 	},
 }
 
