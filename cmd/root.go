@@ -148,7 +148,7 @@ func init() {
 	rootCmd.Flags().StringVarP(&cfg.BasicAuth, basicAuthFlag, "b", "", "Colon separated user:pass for basic auth header")
 
 	// Specify required flags
-	rootCmd.MarkFlagsOneRequired(concurrencyFlag, durationFlag)
+	rootCmd.MarkFlagsMutuallyExclusive(concurrencyFlag, durationFlag)
 
 	// Only allow a single non flag argument, which is the url/endpoint.
 	rootCmd.Args = cobra.ExactArgs(1)
