@@ -14,6 +14,8 @@ import (
 	"github.com/symonk/vessel/internal/validation"
 )
 
+// TODO: Wire in cobra auto completion
+
 const (
 	// Version holds the current version of the binary.
 	// It is overridden at build time using -ldflags.
@@ -45,8 +47,9 @@ var cfg config.Config
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "vessel",
-	Short: "HTTP Benchmarking utility",
+	Use:     "vessel",
+	Short:   "HTTP Benchmarking utility",
+	Version: Version,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg.Endpoint = args[0]
 
@@ -130,6 +133,7 @@ var rootCmd = &cobra.Command{
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func ExecuteContext(ctx context.Context) error {
+	rootCmd.SetErrPrefix("fatal error: ")
 	return rootCmd.ExecuteContext(ctx)
 }
 
