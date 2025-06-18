@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/spf13/cobra"
 	"github.com/symonk/vessel/internal/collector"
@@ -122,14 +124,12 @@ var rootCmd = &cobra.Command{
 		// command ctx already has the signalling capabilities.
 		// if duration is specified, wrap the ctx with that dead line
 		// to cause Go() to exit and Wait() to unblock.
-		ctx := cmd.Context()
-		var cancelFunc context.CancelFunc
-		if d := cfg.Duration; d != 0 {
-			ctx, cancelFunc = context.WithTimeout(ctx, d)
-			defer cancelFunc()
-		}
+		parent := cmd.Context()
+		ctx, cancel := signal.NotifyContext(parent, os.Interrupt, syscall.SIGTERM)
+		defer cancel()
 
 		requester := requester.New(
+			ctx,
 			cfg,
 			collector,
 			templateRequest,

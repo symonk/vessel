@@ -26,6 +26,7 @@ type Requester interface {
 // of that request until either the maximum count is reached
 // or the duration has been surpassed.
 type HTTPRequester struct {
+	ctx      context.Context // Parent cancelled on signal
 	cfg      config.Config
 	client   *http.Client
 	template *http.Request
@@ -35,9 +36,10 @@ type HTTPRequester struct {
 
 // New instantiates a new instance of Requester and returns
 // the ptr to it.
-func New(cfg config.Config, collector collector.Collector, template *http.Request) *HTTPRequester {
+func New(ctx context.Context, cfg config.Config, collector collector.Collector, template *http.Request) *HTTPRequester {
 	maxWorkers := max(1, cfg.Concurrency)
 	r := &HTTPRequester{
+		ctx: ctx,
 		cfg: cfg,
 		client: &http.Client{
 			Timeout: cfg.Timeout,
@@ -91,6 +93,9 @@ func (h *HTTPRequester) spawn(count int) {
 				// if no duration was set (-d) a nil channel
 				// will never select.
 				close(h.workerCh)
+				return
+			case <-h.ctx.Done():
+				// A signal was received, cause a graceful exit
 				return
 			default:
 				// keep track of seen requests and keep providing requests
