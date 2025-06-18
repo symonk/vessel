@@ -85,14 +85,15 @@ func (h *HTTPRequester) spawn(count int) {
 	}
 
 	go func() {
+		defer func() {
+			close(h.workerCh)
+		}()
 		for {
 			select {
 			case <-tick:
-				// if a duration was set, we have reached out.
+				// if a duration was set, we have reached it.
 				// gracefully exit.
-				// if no duration was set (-d) a nil channel
-				// will never select.
-				close(h.workerCh)
+				// nil channel otherwise (never selects/blocks)
 				return
 			case <-h.ctx.Done():
 				// A signal was received, cause a graceful exit
@@ -101,7 +102,6 @@ func (h *HTTPRequester) spawn(count int) {
 				// keep track of seen requests and keep providing requests
 				// to workers as fast as possible.
 				if tick != nil && seen == h.cfg.Amount {
-					close(h.workerCh)
 					return
 				}
 				ctx, cancel := context.WithTimeout(context.Background(), h.cfg.Timeout)
