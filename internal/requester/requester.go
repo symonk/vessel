@@ -57,17 +57,25 @@ func New(cfg config.Config, collector collector.Collector, template *http.Reques
 }
 
 // Wait waits until all requests are finished.
-func (r *HTTPRequester) Wait() {
-	r.wg.Wait()
+func (h *HTTPRequester) Wait() {
+	h.wg.Wait()
 }
 
 // spawn fans out workers in the pool upto the configured
 // concurrency.
-func (r *HTTPRequester) spawn(count int) {
-	for range count {
-		go worker(&r.wg, r.client, r.workerCh, r.results)
-	}
+func (h *HTTPRequester) spawn(count int) {
+	// Asynchronously start worker routines
+	go func() {
+		for range count {
+			go worker(&h.wg, h.client, h.workerCh, h.results)
+		}
+	}()
+	// Asynchronously load requests into the queue.
+	// Depending on -d or -a (duration || amount) the strategy
+	// for loading requests onto the queues differs.
+	go func() {
 
+	}()
 }
 
 func worker(wg *sync.WaitGroup, client *http.Client, work <-chan *http.Request, results chan<- RequestResult) {

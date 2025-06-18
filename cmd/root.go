@@ -37,6 +37,7 @@ const (
 	userAgentFlag   = "agent"
 	basicAuthFlag   = "basic"
 	headersFlag     = "headers"
+	numberFlag      = "number"
 )
 
 const (
@@ -159,9 +160,11 @@ func init() {
 	rootCmd.Flags().StringVarP(&cfg.UserAgent, userAgentFlag, "u", "", "Set a custom user agent header, this is always suffixed with the tools user agent")
 	rootCmd.Flags().StringVarP(&cfg.BasicAuth, basicAuthFlag, "b", "", "Colon separated user:pass for basic auth header")
 	rootCmd.Flags().StringSliceVarP(&cfg.Headers, headersFlag, "H", make([]string, 0), "Colon separated header:value for arbitrary HTTP headers (appendable)")
+	rootCmd.Flags().IntVarP(&cfg.Amount, numberFlag, "n", 50, "The total number of requests, cannot be used with -d")
 
 	// Specify required flags
 	rootCmd.MarkFlagsMutuallyExclusive(concurrencyFlag, durationFlag)
+	rootCmd.MarkFlagsMutuallyExclusive(durationFlag, numberFlag)
 
 	// Only allow a single non flag argument, which is the url/endpoint.
 	rootCmd.Args = cobra.ExactArgs(1)
