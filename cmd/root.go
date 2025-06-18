@@ -69,13 +69,13 @@ var rootCmd = &cobra.Command{
 			BasicAuth: TODO: Add b64 authorisation basic auth header to requests. [done]
 			Host: TODO: Add Host header to requests. [done]
 			UserAgent: TODO: Append user defined user agent, default to something identifying the tool. [done]
+			Headers: TODO: Allow arbitrary `-H K:V` header value pairs.
 			MaxRPS: TODO: Somehow throttle max requests per second.
 			Concurrency: TODO: fan out worker pool of concurrency count.
 			Duration: TODO: Exit after fixed duration, smart use of contexts an proper cleanup.
 			Output: TODO: Allow JSON/CSV resultsets, keep it extensible for future.
 			Timeout: TODO: Per request timeouts (read etc).
 			HTTP2: TODO: Enable http2 negotiation, careful we are using our own transport impl (not implicit).
-			Headers: TODO: Allow arbitrary `-H K:V` header value pairs.
 		*/
 
 		// handle -q to suppress output if required.
@@ -117,12 +117,6 @@ var rootCmd = &cobra.Command{
 
 		collector := collector.New(out, &cfg)
 
-		requester := requester.New(
-			cfg,
-			collector,
-			templateRequest,
-		)
-
 		// command ctx already has the signalling capabilities.
 		// if duration is specified, wrap the ctx with that dead line
 		// to cause Go() to exit and Wait() to unblock.
@@ -132,7 +126,12 @@ var rootCmd = &cobra.Command{
 			ctx, cancelFunc = context.WithTimeout(ctx, d)
 			defer cancelFunc()
 		}
-		requester.Go(ctx)
+
+		requester := requester.New(
+			cfg,
+			collector,
+			templateRequest,
+		)
 		requester.Wait()
 		collector.Summarise()
 		return nil

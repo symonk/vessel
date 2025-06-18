@@ -1,39 +1,44 @@
 package requester
 
 import (
-	"context"
 	"net/http"
+	"sync"
 
-	"github.com/symonk/turbo"
 	"github.com/symonk/vessel/internal/collector"
 	"github.com/symonk/vessel/internal/config"
 )
+
+type RequestResult struct {
+	Response *http.Response
+	Err      error
+}
 
 // Requester sends HTTP requests to a server (typically at scale) and
 // can be signalled to wait until all requests have finalized through
 // Wait()
 type Requester interface {
-	Do(request *http.Request) (*http.Response, error)
-	Go(ctx context.Context)
 	Wait()
 }
 
 // Requester takes a request and fans out many instances
 // of that request until either the maximum count is reached
 // or the duration has been surpassed.
-type RequestSender struct {
+type HTTPRequester struct {
 	cfg      config.Config
-	client   http.Client
+	client   *http.Client
 	template *http.Request
-	pool     turbo.Pooler
+	workerCh chan *http.Request
+	results  chan RequestResult
+	wg       sync.WaitGroup
 }
 
 // New instantiates a new instance of Requester and returns
 // the ptr to it.
-func New(cfg config.Config, collector collector.Collector, template *http.Request) *RequestSender {
-	return &RequestSender{
+func New(cfg config.Config, collector collector.Collector, template *http.Request) *HTTPRequester {
+	maxWorkers := max(1, cfg.Concurrency)
+	r := &HTTPRequester{
 		cfg: cfg,
-		client: http.Client{
+		client: &http.Client{
 			Timeout: cfg.Timeout,
 			Transport: &RateLimitingTransport{
 				Next: &CollectableTransport{
@@ -43,23 +48,35 @@ func New(cfg config.Config, collector collector.Collector, template *http.Reques
 			},
 		},
 		template: template,
-		pool:     turbo.NewPool(cfg.Concurrency),
+		workerCh: make(chan *http.Request, maxWorkers),
+		results:  make(chan RequestResult, maxWorkers),
 	}
+	r.wg.Add(maxWorkers)
+	go r.spawn(maxWorkers)
+	return r
 }
 
-func (r *RequestSender) Go(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			// Either the application received an interrupt signal or the
-			// user provided -d (duration flag has passed)
-			return
+// Wait waits until all requests are finished.
+func (r *HTTPRequester) Wait() {
+	r.wg.Wait()
+}
+
+// spawn fans out workers in the pool upto the configured
+// concurrency.
+func (r *HTTPRequester) spawn(count int) {
+	for range count {
+		go worker(&r.wg, r.client, r.workerCh, r.results)
+	}
+
+}
+
+func worker(wg *sync.WaitGroup, client *http.Client, work <-chan *http.Request, results chan<- RequestResult) {
+	defer wg.Done()
+	for req := range work {
+		response, err := client.Do(req)
+		results <- RequestResult{
+			Response: response,
+			Err:      err,
 		}
-
 	}
-}
-
-// TODO: Fix error handling into turbo's stop()
-func (r *RequestSender) Wait() {
-	_ = r.pool.Stop(true)
 }
