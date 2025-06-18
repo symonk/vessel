@@ -71,7 +71,7 @@ var rootCmd = &cobra.Command{
 			BasicAuth: TODO: Add b64 authorisation basic auth header to requests. [done]
 			Host: TODO: Add Host header to requests. [done]
 			UserAgent: TODO: Append user defined user agent, default to something identifying the tool. [done]
-			Headers: TODO: Allow arbitrary `-H K:V` header value pairs.
+			Headers: TODO: Allow arbitrary `-H K:V` header value pairs. [done]
 			MaxRPS: TODO: Somehow throttle max requests per second.
 			Concurrency: TODO: fan out worker pool of concurrency count.
 			Duration: TODO: Exit after fixed duration, smart use of contexts an proper cleanup.
@@ -161,7 +161,7 @@ func init() {
 	rootCmd.Flags().StringVarP(&cfg.UserAgent, userAgentFlag, "u", "", "Set a custom user agent header, this is always suffixed with the tools user agent")
 	rootCmd.Flags().StringVarP(&cfg.BasicAuth, basicAuthFlag, "b", "", "Colon separated user:pass for basic auth header")
 	rootCmd.Flags().StringSliceVarP(&cfg.Headers, headersFlag, "H", make([]string, 0), "Colon separated header:value for arbitrary HTTP headers (appendable)")
-	rootCmd.Flags().IntVarP(&cfg.Amount, numberFlag, "n", 50, "The total number of requests, cannot be used with -d")
+	rootCmd.Flags().Int64VarP(&cfg.Amount, numberFlag, "n", 50, "The total number of requests, cannot be used with -d")
 	rootCmd.Flags().BoolVarP(&cfg.FollowRedirects, followFlag, "f", true, "Automaticall follow redirects")
 
 	// Specify required flags

@@ -1,8 +1,10 @@
 package requester
 
 import (
+	"context"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/symonk/vessel/internal/collector"
 	"github.com/symonk/vessel/internal/config"
@@ -28,7 +30,6 @@ type HTTPRequester struct {
 	client   *http.Client
 	template *http.Request
 	workerCh chan *http.Request
-	results  chan RequestResult
 	wg       sync.WaitGroup
 }
 
@@ -49,7 +50,6 @@ func New(cfg config.Config, collector collector.Collector, template *http.Reques
 		},
 		template: template,
 		workerCh: make(chan *http.Request, maxWorkers),
-		results:  make(chan RequestResult, maxWorkers),
 	}
 	r.wg.Add(maxWorkers)
 	go r.spawn(maxWorkers)
@@ -67,27 +67,51 @@ func (h *HTTPRequester) spawn(count int) {
 	// Asynchronously start worker routines
 	go func() {
 		for range count {
-			go worker(&h.wg, h.client, h.workerCh, h.results)
+			go worker(&h.wg, h.client, h.workerCh)
 		}
 	}()
 
 	// Asynchronously load requests into the queue.
 	// Depending on -d or -a (duration || amount) the strategy
 	// for loading requests onto the queues differs.
+	var seen int64
+	var tick <-chan time.Time
+	if dur := h.cfg.Duration; dur > 0 {
+		ticker := time.NewTicker(dur)
+		defer ticker.Stop()
+		tick = ticker.C
+	}
+
 	go func() {
 		for {
-			select {}
+			select {
+			case <-tick:
+				// if a duration was set, we have reached out.
+				// gracefully exit.
+				// if no duration was set (-d) a nil channel
+				// will never select.
+				close(h.workerCh)
+				return
+			default:
+				// keep track of seen requests and keep providing requests
+				// to workers as fast as possible.
+				if tick != nil && seen == h.cfg.Amount {
+					close(h.workerCh)
+					return
+				}
+				ctx, cancel := context.WithTimeout(context.Background(), h.cfg.Timeout)
+				defer cancel()
+				r := h.template.Clone(ctx)
+				seen++
+				h.workerCh <- r
+			}
 		}
 	}()
 }
 
-func worker(wg *sync.WaitGroup, client *http.Client, work <-chan *http.Request, results chan<- RequestResult) {
+func worker(wg *sync.WaitGroup, client *http.Client, work <-chan *http.Request) {
 	defer wg.Done()
 	for req := range work {
-		response, err := client.Do(req)
-		results <- RequestResult{
-			Response: response,
-			Err:      err,
-		}
+		client.Do(req)
 	}
 }

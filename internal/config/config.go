@@ -20,7 +20,7 @@ type Config struct {
 	Endpoint        string
 	BasicAuth       string
 	Headers         []string
-	Amount          int
+	Amount          int64
 	FollowRedirects bool
 }
 
