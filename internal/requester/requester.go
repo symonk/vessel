@@ -70,11 +70,14 @@ func (h *HTTPRequester) spawn(count int) {
 			go worker(&h.wg, h.client, h.workerCh, h.results)
 		}
 	}()
+
 	// Asynchronously load requests into the queue.
 	// Depending on -d or -a (duration || amount) the strategy
 	// for loading requests onto the queues differs.
 	go func() {
-
+		for {
+			select {}
+		}
 	}()
 }
 

@@ -38,6 +38,7 @@ const (
 	basicAuthFlag   = "basic"
 	headersFlag     = "headers"
 	numberFlag      = "number"
+	followFlag      = "follow"
 )
 
 const (
@@ -161,6 +162,7 @@ func init() {
 	rootCmd.Flags().StringVarP(&cfg.BasicAuth, basicAuthFlag, "b", "", "Colon separated user:pass for basic auth header")
 	rootCmd.Flags().StringSliceVarP(&cfg.Headers, headersFlag, "H", make([]string, 0), "Colon separated header:value for arbitrary HTTP headers (appendable)")
 	rootCmd.Flags().IntVarP(&cfg.Amount, numberFlag, "n", 50, "The total number of requests, cannot be used with -d")
+	rootCmd.Flags().BoolVarP(&cfg.FollowRedirects, followFlag, "f", true, "Automaticall follow redirects")
 
 	// Specify required flags
 	rootCmd.MarkFlagsMutuallyExclusive(concurrencyFlag, durationFlag)
