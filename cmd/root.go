@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -56,6 +57,10 @@ var rootCmd = &cobra.Command{
 	Short:   "HTTP Benchmarking utility",
 	Version: Version,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if cfg.Amount == 0 && cfg.Duration == 0 {
+			return errors.New("-n or -d must not be zero when supplied")
+		}
+
 		cfg.Endpoint = args[0]
 
 		// build the single template templateRequest to clone later.
