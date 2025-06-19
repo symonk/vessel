@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/symonk/vessel/internal/config"
@@ -47,7 +46,6 @@ type Collector interface {
 // stream.
 type EventCollector struct {
 	writer  io.Writer
-	seen    atomic.Int64
 	started time.Time
 	cfg     *config.Config
 	bucket  StatusBucket
@@ -75,7 +73,7 @@ func (e *EventCollector) RecordFailure(code int, err error) {}
 // Complex logic will occur in here based on all the kinds
 // of responses observed for the various requests sent.
 func (e *EventCollector) Summarise() {
-	fmt.Fprintf(e.writer, fmt.Sprintf(`Running %s test against %s
+	_, _ = fmt.Fprintf(e.writer, `Running %s test against %s
 %d connections.
 
 Summary:
@@ -92,5 +90,5 @@ Summary:
 		e.bucket.Count(),
 		time.Since(e.started),
 		e.bucket,
-	))
+	)
 }

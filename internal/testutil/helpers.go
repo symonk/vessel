@@ -10,6 +10,6 @@ func NewMockServer(response string, status int) *httptest.Server {
 	return httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(status)
-			w.Write([]byte(response))
+			_, _ = w.Write([]byte(response))
 		}))
 }

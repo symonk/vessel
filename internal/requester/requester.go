@@ -117,6 +117,6 @@ func (h *HTTPRequester) spawn(count int) {
 func worker(wg *sync.WaitGroup, client *http.Client, work <-chan *http.Request) {
 	defer wg.Done()
 	for req := range work {
-		client.Do(req)
+		_, _ = client.Do(req)
 	}
 }

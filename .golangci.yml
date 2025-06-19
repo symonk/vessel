@@ -1,0 +1,19 @@
+version: 2
+
+run:
+  timeout: 2m
+  tests: true
+
+linters:
+  enable:
+    - govet       # basic vet checks, always useful
+    - staticcheck # more advanced static analysis
+    - errcheck    # check for ignored errors
+    - unused      # detect unused variables/functions
+
+issues:
+  max-issues-per-linter: 10
+  max-same-issues: 3
+
+output:
+  format: colored-line-number
