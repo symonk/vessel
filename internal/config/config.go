@@ -1,12 +1,12 @@
 package config
 
 import (
+	"net/http"
 	"time"
 )
 
 // Config encapsulates the runtime configuration options
 type Config struct {
-	VersionSet      bool
 	QuietSet        bool
 	MaxRPS          int
 	Concurrency     int
@@ -24,7 +24,11 @@ type Config struct {
 	FollowRedirects bool
 }
 
-// New instantiates a new config and returns a ptr to the instance
+// New instantiates a new config and returns a ptr to the instance.
 func New() *Config {
-	return &Config{}
+	return &Config{
+		Concurrency: 10,
+		Duration:    time.Second * 10,
+		Method:      http.MethodGet,
+	}
 }

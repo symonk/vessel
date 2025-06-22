@@ -27,7 +27,7 @@ type Requester interface {
 // or the duration has been surpassed.
 type HTTPRequester struct {
 	ctx      context.Context // Parent cancelled on signal
-	cfg      config.Config
+	cfg      *config.Config
 	client   *http.Client
 	template *http.Request
 	workerCh chan *http.Request
@@ -36,7 +36,7 @@ type HTTPRequester struct {
 
 // New instantiates a new instance of Requester and returns
 // the ptr to it.
-func New(ctx context.Context, cfg config.Config, collector collector.Collector, template *http.Request) *HTTPRequester {
+func New(ctx context.Context, cfg *config.Config, collector collector.Collector, template *http.Request) *HTTPRequester {
 	maxWorkers := max(1, cfg.Concurrency)
 	r := &HTTPRequester{
 		ctx: ctx,

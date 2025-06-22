@@ -49,7 +49,11 @@ const (
 	userAgentHeader = "User-Agent"
 )
 
-var cfg config.Config
+var cfg *config.Config
+
+func init() {
+	cfg = config.New()
+}
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -120,11 +124,11 @@ var rootCmd = &cobra.Command{
 		// the tool user agent is always appended for server tracability.
 		uA := "vessel/" + Version
 		if cmd.Flags().Changed(userAgentFlag) {
-			uA = fmt.Sprintf("%s ", uA)
+			cfg.UserAgent += fmt.Sprintf("%s ", uA)
 		}
-		templateRequest.Header.Set(userAgentHeader, uA)
+		templateRequest.Header.Set(userAgentHeader, cfg.UserAgent)
 
-		collector := collector.New(out, &cfg)
+		collector := collector.New(out, cfg)
 
 		// command ctx already has the signalling capabilities.
 		// if duration is specified, wrap the ctx with that dead line
@@ -153,7 +157,6 @@ func ExecuteContext(ctx context.Context) error {
 }
 
 func init() {
-	rootCmd.Flags().BoolVarP(&cfg.VersionSet, versionFlag, "v", false, "Shows the version of vessel")
 	rootCmd.Flags().BoolVarP(&cfg.QuietSet, quietFlag, "q", false, "Suppresses output")
 	rootCmd.Flags().IntVarP(&cfg.MaxRPS, maxRPSFlag, "r", 0, "Rate limit requests per second")
 	rootCmd.Flags().IntVarP(&cfg.Concurrency, concurrencyFlag, "c", 10, "Number of concurrent requests")
