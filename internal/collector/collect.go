@@ -31,7 +31,7 @@ func (s StatusBucket) String() string {
 func (s StatusBucket) Count() int {
 	var c int
 	for k := range s {
-		c += k
+		c += s[k]
 	}
 	return c
 }
@@ -92,14 +92,15 @@ func (e *EventCollector) RecordFailure(err error) {
 // TODO: Wire in latency breakdowns from httptrace for:
 // TODO: DNS resolution, TCP connection time, TLS handshake time, Time to first byte, total response time.
 func (e *EventCollector) Summarise() {
+	done := time.Since(e.started)
 	reasons := make([]string, len(e.errors))
 	for i, e := range e.errors {
 		reasons[i] = e.Error()
 	}
-	_, _ = fmt.Fprintf(e.writer, `Test against %s finished after %d seconds.
+	_, _ = fmt.Fprintf(e.writer, `Test against %s finished after %s.
 
 Summary:
-  Total Requests:	%d
+  Total Requests:	%d (%d per second)
   Duration: 		%s
   Latency:      	avg=8.3ms max=240ms p95=15ms
   Errors:       	%d
@@ -110,9 +111,10 @@ Summary:
   %s
   `,
 		e.cfg.Endpoint,
-		e.cfg.Duration,
+		e.cfg.Duration.String(),
 		e.bucket.Count(),
-		time.Since(e.started),
+		e.bucket.Count()/int(e.cfg.Duration.Seconds()),
+		done,
 		len(e.errors),
 		e.bucket,
 	)

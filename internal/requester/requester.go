@@ -2,7 +2,6 @@ package requester
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -59,7 +58,8 @@ func New(ctx context.Context, cfg *config.Config, collector collector.ResultColl
 	return r
 }
 
-// Wait waits until all requests are finished.
+// Wait waits until all requests are finished and all workers
+// have cleanly shutdown.
 func (h *HTTPRequester) Wait() {
 	h.wg.Wait()
 }
@@ -94,7 +94,6 @@ func (h *HTTPRequester) spawn(count int) {
 			// if a duration was set, we have reached it.
 			// gracefully exit.
 			// nil channel otherwise (never selects/blocks)
-			fmt.Println("Ticked!")
 			return
 		case <-h.ctx.Done():
 			// A signal was received, cause a graceful exit
@@ -117,7 +116,12 @@ func (h *HTTPRequester) spawn(count int) {
 func worker(wg *sync.WaitGroup, client *http.Client, work <-chan *http.Request) {
 	defer wg.Done()
 	for req := range work {
-		_, _ = client.Do(req)
+		resp, err := client.Do(req)
+		if err != nil {
+			// TODO: What should we do with errors at this layer.
+			continue
+		}
+		resp.Body.Close()
 	}
 }
 

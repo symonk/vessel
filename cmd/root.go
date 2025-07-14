@@ -42,6 +42,7 @@ const (
 	headersFlag     = "headers"
 	numberFlag      = "number"
 	followFlag      = "follow"
+	showCfgFlag     = "show"
 )
 
 const (
@@ -49,7 +50,10 @@ const (
 	userAgentHeader = "User-Agent"
 )
 
-var cfg *config.Config
+var (
+	cfg     *config.Config
+	showCfg bool
+)
 
 func init() {
 	cfg = &config.Config{}
@@ -61,11 +65,14 @@ var rootCmd = &cobra.Command{
 	Short:   "HTTP Benchmarking utility",
 	Version: Version,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg.Endpoint = args[0]
+		if showCfg {
+			fmt.Println(cfg)
+		}
+
 		if cfg.Amount == 0 && cfg.Duration == 0 {
 			return errors.New("-n or -d must not be zero when supplied")
 		}
-
-		cfg.Endpoint = args[0]
 
 		// build the single template templateRequest to clone later.
 		templateRequest, err := http.NewRequest(
@@ -90,9 +97,6 @@ var rootCmd = &cobra.Command{
 			Timeout: TODO: Per request timeouts (read etc).
 			HTTP2: TODO: Enable http2 negotiation, careful we are using our own transport impl (not implicit).
 		*/
-
-		// Dump the config for now, debugging only - remove in future
-		fmt.Println(cfg)
 
 		// Ensure the endpoint is actual a valid URL
 		// TODO: Do we want to enforce host/scheme specifics?
@@ -189,7 +193,8 @@ func init() {
 	rootCmd.Flags().StringVarP(&cfg.BasicAuth, basicAuthFlag, "b", "", "Colon separated user:pass for basic auth header")
 	rootCmd.Flags().StringSliceVarP(&cfg.Headers, headersFlag, "H", make([]string, 0), "Colon separated header:value for arbitrary HTTP headers (appendable)")
 	rootCmd.Flags().Int64VarP(&cfg.Amount, numberFlag, "n", 50, "The total number of requests, cannot be used with -d")
-	rootCmd.Flags().BoolVarP(&cfg.FollowRedirects, followFlag, "f", true, "Automaticall follow redirects")
+	rootCmd.Flags().BoolVarP(&cfg.FollowRedirects, followFlag, "f", true, "Automatically follow redirects")
+	rootCmd.Flags().BoolVarP(&showCfg, showCfgFlag, "s", false, "Print cfg to stdout on startup")
 
 	// Specify required flags
 	rootCmd.MarkFlagsMutuallyExclusive(concurrencyFlag, durationFlag)
