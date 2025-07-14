@@ -2,11 +2,13 @@ package collector
 
 import (
 	"fmt"
+	"html/template"
 	"io"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/HdrHistogram/hdrhistogram-go"
 	"github.com/symonk/vessel/internal/config"
 )
 
@@ -18,7 +20,7 @@ type StatusBucket map[int]int
 // breakdown of responses.
 func (s StatusBucket) String() string {
 	var b strings.Builder
-	b.WriteString("Response Breakdown:")
+	b.WriteString("Response Breakdown:\n")
 	for k, v := range s {
 		b.WriteString("\n")
 		b.WriteString(fmt.Sprintf("\t[%d]: %d", k, v))
@@ -37,7 +39,7 @@ func (s StatusBucket) Count() int {
 }
 
 type ResultCollector interface {
-	RecordSuccess(code int)
+	RecordSuccess(code int, latencyMilliseconds int64)
 	RecordFailure(err error)
 	Summarise()
 }
@@ -46,27 +48,30 @@ type ResultCollector interface {
 // the execution and can summarise those to an output
 // stream.
 type EventCollector struct {
-	writer  io.Writer
-	started time.Time
-	cfg     *config.Config
-	bucket  StatusBucket
-	mu      sync.Mutex
-	errors  []error
+	writer           io.Writer
+	started          time.Time
+	cfg              *config.Config
+	bucket           StatusBucket
+	mu               sync.Mutex
+	errors           []error
+	latencyHistogram hdrhistogram.Histogram
 }
 
 func New(writer io.Writer, cfg *config.Config) *EventCollector {
 	return &EventCollector{
-		writer:  writer,
-		cfg:     cfg,
-		started: time.Now(),
-		bucket:  make(StatusBucket),
+		writer:           writer,
+		cfg:              cfg,
+		started:          time.Now(),
+		bucket:           make(StatusBucket),
+		latencyHistogram: *hdrhistogram.New(1, 60000, 3),
 	}
 }
 
 // RecordSuccess atomically records a success
-func (e *EventCollector) RecordSuccess(code int) {
+func (e *EventCollector) RecordSuccess(code int, latency int64) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	e.latencyHistogram.RecordValue(latency)
 	_, ok := e.bucket[code]
 	if !ok {
 		e.bucket[code] = 1
@@ -97,25 +102,66 @@ func (e *EventCollector) Summarise() {
 	for i, e := range e.errors {
 		reasons[i] = e.Error()
 	}
-	_, _ = fmt.Fprintf(e.writer, `Test against %s finished after %s.
+
+	seconds := max(1, int(e.cfg.Duration.Seconds()))
+	total := e.bucket.Count()
+	perSec := total / seconds
+	latency := fmt.Sprintf("max=%dms, avg=%fms, p50=%dms, p75=%dms, p95=%dms, p99=%dms, p99.9=%dms",
+		e.latencyHistogram.Max(),
+		e.latencyHistogram.Mean(),
+		e.latencyHistogram.ValueAtQuantile(50),
+		e.latencyHistogram.ValueAtQuantile(75),
+		e.latencyHistogram.ValueAtQuantile(90),
+		e.latencyHistogram.ValueAtQuantile(99),
+		e.latencyHistogram.ValueAtQuantile(99.9),
+	)
+
+	const tmpl = `
+
+Test against {{.Host}} finished after {{.RealTime}}.
 
 Summary:
-  Total Requests:	%d (%d per second)
-  Duration: 		%s
-  Latency:      	avg=8.3ms max=240ms p95=15ms
-  Errors:       	%d
-  Throughput:   	1.1MB/s
 
-  ------------------------------------------------------------
- 
-  %s
-  `,
-		e.cfg.Endpoint,
-		e.cfg.Duration.String(),
-		e.bucket.Count(),
-		e.bucket.Count()/int(e.cfg.Duration.Seconds()),
-		done,
-		len(e.errors),
-		e.bucket,
-	)
+  Total Requests:		{{.Count}} ({{.PerSecond}} per second)
+  Duration:			{{.RealTime}}
+  Latency:			{{.Latency}}
+  Errors:			{{.ErrorCount}}
+  Throughput:			1.1MB/s
+
+  {{.Results}}
+
+`
+	s := &Summary{
+		Host:       e.cfg.Endpoint,
+		Duration:   e.cfg.Duration.String(),
+		Count:      e.latencyHistogram.TotalCount(),
+		PerSecond:  perSec,
+		Latency:    latency,
+		Throughput: "1.1MB/s",
+		ErrorCount: len(e.errors),
+		RealTime:   done,
+		Results:    e.bucket,
+	}
+	t, err := template.New("summary").Parse(tmpl)
+	if err != nil {
+		// TODO: Improve
+		fmt.Println("unable to generate summary")
+	}
+	outErr := t.Execute(e.writer, s)
+	if outErr != nil {
+		// TODO: Improve
+		fmt.Println("unable to show summary", err)
+	}
+}
+
+type Summary struct {
+	Host       string
+	Duration   string
+	Count      int64
+	PerSecond  int
+	Latency    string
+	Throughput string
+	ErrorCount int
+	RealTime   time.Duration
+	Results    StatusBucket
 }

@@ -2,6 +2,7 @@ package requester
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/symonk/vessel/internal/collector"
 )
@@ -16,12 +17,14 @@ type CollectableTransport struct {
 // RoundTrip collects and publishes metrics to the collector for each individual
 // request/response.
 func (c *CollectableTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	start := time.Now()
 	response, err := c.Next.RoundTrip(request)
+	latency := time.Since(start)
 	if err != nil {
 		c.Collector.RecordFailure(err)
 		return response, err
 	}
-	c.Collector.RecordSuccess(response.StatusCode)
+	c.Collector.RecordSuccess(response.StatusCode, int64(latency.Milliseconds()))
 	return response, err
 }
 
