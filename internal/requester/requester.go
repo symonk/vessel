@@ -36,19 +36,19 @@ type HTTPRequester struct {
 
 // New instantiates a new instance of Requester and returns
 // the ptr to it.
-func New(ctx context.Context, cfg *config.Config, collector collector.Collector, template *http.Request) *HTTPRequester {
-	maxWorkers := max(1, cfg.Concurrency)
+func New(ctx context.Context, cfg *config.Config, collector collector.ResultCollector, template *http.Request) *HTTPRequester {
+	maxWorkers := max(1, cfg.MaxRPS)
 	r := &HTTPRequester{
 		ctx: ctx,
 		cfg: cfg,
 		client: &http.Client{
 			Timeout: cfg.Timeout,
-			Transport: &RateLimitingTransport{
-				Next: &CollectableTransport{
+			Transport: NewRateLimitingTransport(
+				cfg.Concurrency,
+				&CollectableTransport{
 					Collector: collector,
 					Next:      http.DefaultTransport,
-				},
-			},
+				}),
 		},
 		template: template,
 		workerCh: make(chan *http.Request, maxWorkers),
@@ -101,10 +101,10 @@ func (h *HTTPRequester) spawn(count int) {
 			default:
 				// keep track of seen requests and keep providing requests
 				// to workers as fast as possible.
-				if tick != nil && seen == h.cfg.Amount {
+				if tick == nil && seen == h.cfg.Amount {
 					return
 				}
-				ctx, cancel := context.WithTimeout(context.Background(), h.cfg.Timeout)
+				ctx, cancel := getCtx(h.cfg.Duration)
 				defer cancel()
 				r := h.template.Clone(ctx)
 				seen++
@@ -119,4 +119,11 @@ func worker(wg *sync.WaitGroup, client *http.Client, work <-chan *http.Request) 
 	for req := range work {
 		_, _ = client.Do(req)
 	}
+}
+
+func getCtx(duration time.Duration) (context.Context, context.CancelFunc) {
+	if duration == 0 {
+		return context.Background(), func() {}
+	}
+	return context.WithTimeout(context.Background(), duration)
 }

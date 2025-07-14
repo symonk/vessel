@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
@@ -32,7 +33,6 @@ const (
 	maxRPSFlag      = "max-rps"
 	concurrencyFlag = "concurrency"
 	durationFlag    = "duration"
-	outputFlag      = "output"
 	methodFlag      = "method"
 	timeoutFlag     = "timeout"
 	http2Flag       = "http2"
@@ -83,13 +83,23 @@ var rootCmd = &cobra.Command{
 			Host: TODO: Add Host header to requests. [done]
 			UserAgent: TODO: Append user defined user agent, default to something identifying the tool. [done]
 			Headers: TODO: Allow arbitrary `-H K:V` header value pairs. [done]
-			MaxRPS: TODO: Somehow throttle max requests per second.
-			Concurrency: TODO: fan out worker pool of concurrency count.
+			MaxRPS: TODO: Somehow throttle max requests per second. [done]
+			Concurrency: TODO: fan out worker pool of concurrency count. [wip]
 			Duration: TODO: Exit after fixed duration, smart use of contexts an proper cleanup.
 			Output: TODO: Allow JSON/CSV resultsets, keep it extensible for future.
 			Timeout: TODO: Per request timeouts (read etc).
 			HTTP2: TODO: Enable http2 negotiation, careful we are using our own transport impl (not implicit).
 		*/
+
+		// Dump the config for now, debugging only - remove in future
+		fmt.Println(cfg)
+
+		// Ensure the endpoint is actual a valid URL
+		// TODO: Do we want to enforce host/scheme specifics?
+		_, err = url.ParseRequestURI(cfg.Endpoint)
+		if err != nil {
+			return fmt.Errorf("bad endpoint provided: %v", err)
+		}
 
 		// handle -q to suppress output if required.
 		var out io.Writer = os.Stdout
@@ -103,6 +113,16 @@ var rootCmd = &cobra.Command{
 		if cmd.Flags().Changed(headersFlag) {
 			headers := validation.ParseHTTPHeaders(cfg.Headers).Clone()
 			templateRequest.Header = headers
+		}
+
+		// Disallow negative MaxRPS.
+		if cmd.Flags().Changed(maxRPSFlag) {
+			cfg.MaxRPS = max(0, cfg.MaxRPS)
+		}
+
+		// Disallow negative concurrency.
+		if cmd.Flags().Changed(concurrencyFlag) {
+			cfg.Concurrency = max(0, cfg.MaxRPS)
 		}
 
 		// Handle basic auth if provided by the user
@@ -161,7 +181,6 @@ func init() {
 	rootCmd.Flags().IntVarP(&cfg.MaxRPS, maxRPSFlag, "r", 0, "Rate limit requests per second")
 	rootCmd.Flags().IntVarP(&cfg.Concurrency, concurrencyFlag, "c", 10, "Number of concurrent requests")
 	rootCmd.Flags().DurationVarP(&cfg.Duration, durationFlag, "d", 0, "Duration to send requests for")
-	rootCmd.Flags().StringVarP(&cfg.Output, outputFlag, "o", "", "File format to output")
 	rootCmd.Flags().StringVarP(&cfg.Method, methodFlag, "m", "GET", "HTTP Verb to perform")
 	rootCmd.Flags().DurationVarP(&cfg.Timeout, timeoutFlag, "t", 0, "Requests before terminating the request")
 	rootCmd.Flags().BoolVar(&cfg.HTTP2, http2Flag, false, "Enable HTTP/2 support")

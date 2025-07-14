@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/symonk/vessel/internal/config"
@@ -35,9 +36,9 @@ func (s StatusBucket) Count() int {
 	return c
 }
 
-type Collector interface {
+type ResultCollector interface {
 	RecordSuccess(code int)
-	RecordFailure(code int, err error)
+	RecordFailure(err error)
 	Summarise()
 }
 
@@ -49,6 +50,8 @@ type EventCollector struct {
 	started time.Time
 	cfg     *config.Config
 	bucket  StatusBucket
+	mu      sync.Mutex
+	errors  []error
 }
 
 func New(writer io.Writer, cfg *config.Config) *EventCollector {
@@ -56,25 +59,38 @@ func New(writer io.Writer, cfg *config.Config) *EventCollector {
 		writer:  writer,
 		cfg:     cfg,
 		started: time.Now(),
-		bucket: StatusBucket{
-			200: 10,
-			204: 30,
-			401: 100,
-			403: 5,
-			500: 19,
-		},
+		bucket:  make(StatusBucket),
 	}
 }
 
-func (e *EventCollector) RecordSuccess(code int)            {}
-func (e *EventCollector) RecordFailure(code int, err error) {}
+// RecordSuccess atomically records a success
+func (e *EventCollector) RecordSuccess(code int) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	_, ok := e.bucket[code]
+	if !ok {
+		e.bucket[code] = 1
+		return
+	}
+	e.bucket[code] += 1
+}
+
+func (e *EventCollector) RecordFailure(err error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.errors = append(e.errors, err)
+}
 
 // Summarise calculates the final summary prior to exiting.
 // Complex logic will occur in here based on all the kinds
 // of responses observed for the various requests sent.
+// TODO: Use some sort of templating here?
 func (e *EventCollector) Summarise() {
-	_, _ = fmt.Fprintf(e.writer, `Running %s test against %s
-%d connections.
+	reasons := make([]string, len(e.errors))
+	for i, e := range e.errors {
+		reasons[i] = e.Error()
+	}
+	_, _ = fmt.Fprintf(e.writer, `Test against %s finished after %d seconds.
 
 Summary:
   Total Requests:	%d
@@ -82,13 +98,22 @@ Summary:
   Latency:      	avg=8.3ms max=240ms p95=15ms
   Errors:       	2 timeouts, 3 connection resets
   Throughput:   	1.1MB/s
+
+  ------------------------------------------------------------
  
-  %s`,
-		e.cfg.Duration,
+  %s
+  
+  ------------------------------------------------------------
+
+  errors:
+
+  %s
+  `,
 		e.cfg.Endpoint,
 		e.cfg.Duration,
 		e.bucket.Count(),
 		time.Since(e.started),
 		e.bucket,
+		strings.Join(reasons, "\n"),
 	)
 }

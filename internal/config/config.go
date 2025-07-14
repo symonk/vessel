@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"net/http"
 	"time"
 )
@@ -11,7 +12,6 @@ type Config struct {
 	MaxRPS          int
 	Concurrency     int
 	Duration        time.Duration
-	Output          string
 	Method          string
 	Timeout         time.Duration
 	HTTP2           bool
@@ -31,4 +31,9 @@ func New() *Config {
 		Duration:    time.Second * 10,
 		Method:      http.MethodGet,
 	}
+}
+
+func (c *Config) String() string {
+	s, _ := json.MarshalIndent(c, "", "\t")
+	return string(s)
 }

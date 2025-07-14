@@ -9,7 +9,7 @@ import (
 // CollectableTransport enables publishing 'metrics' to
 // the collector as part of request->response flow.
 type CollectableTransport struct {
-	Collector collector.Collector
+	Collector collector.ResultCollector
 	Next      http.RoundTripper
 }
 
@@ -17,15 +17,47 @@ type CollectableTransport struct {
 // request/response.
 func (c *CollectableTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 	response, err := c.Next.RoundTrip(request)
+	if err != nil {
+		c.Collector.RecordFailure(err)
+		return response, err
+	}
+	c.Collector.RecordSuccess(response.StatusCode)
 	return response, err
 }
 
 // RateLimitingTransport allows limiting max RPS
 // at the transport layer
 type RateLimitingTransport struct {
-	Next http.RoundTripper
+	Next       http.RoundTripper
+	sema       chan struct{}
+	throttling bool
 }
 
+// NewRateLimitingTransport throttles requests so that only a fixed
+// number may be in flight at a given time.  This prevents infinite
+// goroutine scaling and potentially thrashing.
+func NewRateLimitingTransport(maximum int, Next http.RoundTripper) *RateLimitingTransport {
+	maximum = max(maximum, 0)
+	var sema chan struct{}
+	if maximum > 0 {
+		sema = make(chan struct{}, maximum)
+	}
+	return &RateLimitingTransport{
+		Next:       Next,
+		sema:       sema,
+		throttling: sema != nil,
+	}
+
+}
+
+// RoundTrip enforces the rate limiter and forwards the request on
+// through the request chains.
 func (r *RateLimitingTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	if r.throttling {
+		<-r.sema
+		defer func() {
+			r.sema <- struct{}{}
+		}()
+	}
 	return r.Next.RoundTrip(request)
 }
