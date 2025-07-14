@@ -52,7 +52,7 @@ const (
 var cfg *config.Config
 
 func init() {
-	cfg = config.New()
+	cfg = &config.Config{}
 }
 
 // rootCmd represents the base command when called without any subcommands

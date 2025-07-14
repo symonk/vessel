@@ -85,6 +85,12 @@ func (e *EventCollector) RecordFailure(err error) {
 // Complex logic will occur in here based on all the kinds
 // of responses observed for the various requests sent.
 // TODO: Use some sort of templating here?
+// TODO: Group errors by 'type of error', show counts
+// TODO: Don't just dump every single error
+// TODO: Wire in throughput support
+// TODO: Wire in latency support
+// TODO: Wire in latency breakdowns from httptrace for:
+// TODO: DNS resolution, TCP connection time, TLS handshake time, Time to first byte, total response time.
 func (e *EventCollector) Summarise() {
 	reasons := make([]string, len(e.errors))
 	for i, e := range e.errors {
@@ -96,24 +102,18 @@ Summary:
   Total Requests:	%d
   Duration: 		%s
   Latency:      	avg=8.3ms max=240ms p95=15ms
-  Errors:       	2 timeouts, 3 connection resets
+  Errors:       	%d
   Throughput:   	1.1MB/s
 
   ------------------------------------------------------------
  
-  %s
-  
-  ------------------------------------------------------------
-
-  errors:
-
   %s
   `,
 		e.cfg.Endpoint,
 		e.cfg.Duration,
 		e.bucket.Count(),
 		time.Since(e.started),
+		len(e.errors),
 		e.bucket,
-		strings.Join(reasons, "\n"),
 	)
 }

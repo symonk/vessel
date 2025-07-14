@@ -2,6 +2,7 @@ package requester
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -37,14 +38,14 @@ type HTTPRequester struct {
 // New instantiates a new instance of Requester and returns
 // the ptr to it.
 func New(ctx context.Context, cfg *config.Config, collector collector.ResultCollector, template *http.Request) *HTTPRequester {
-	maxWorkers := max(1, cfg.MaxRPS)
+	maxWorkers := max(1, cfg.Concurrency)
 	r := &HTTPRequester{
 		ctx: ctx,
 		cfg: cfg,
 		client: &http.Client{
 			Timeout: cfg.Timeout,
 			Transport: NewRateLimitingTransport(
-				cfg.Concurrency,
+				cfg.MaxRPS,
 				&CollectableTransport{
 					Collector: collector,
 					Next:      http.DefaultTransport,
@@ -84,34 +85,33 @@ func (h *HTTPRequester) spawn(count int) {
 		tick = ticker.C
 	}
 
-	go func() {
-		defer func() {
-			close(h.workerCh)
-		}()
-		for {
-			select {
-			case <-tick:
-				// if a duration was set, we have reached it.
-				// gracefully exit.
-				// nil channel otherwise (never selects/blocks)
-				return
-			case <-h.ctx.Done():
-				// A signal was received, cause a graceful exit
-				return
-			default:
-				// keep track of seen requests and keep providing requests
-				// to workers as fast as possible.
-				if tick == nil && seen == h.cfg.Amount {
-					return
-				}
-				ctx, cancel := getCtx(h.cfg.Duration)
-				defer cancel()
-				r := h.template.Clone(ctx)
-				seen++
-				h.workerCh <- r
-			}
-		}
+	defer func() {
+		close(h.workerCh)
 	}()
+	for {
+		select {
+		case <-tick:
+			// if a duration was set, we have reached it.
+			// gracefully exit.
+			// nil channel otherwise (never selects/blocks)
+			fmt.Println("Ticked!")
+			return
+		case <-h.ctx.Done():
+			// A signal was received, cause a graceful exit
+			return
+		default:
+			// keep track of seen requests and keep providing requests
+			// to workers as fast as possible.
+			if tick == nil && seen == h.cfg.Amount {
+				return
+			}
+			ctx, cancel := getCtx(h.cfg.Duration)
+			defer cancel()
+			r := h.template.Clone(ctx)
+			seen++
+			h.workerCh <- r
+		}
+	}
 }
 
 func worker(wg *sync.WaitGroup, client *http.Client, work <-chan *http.Request) {

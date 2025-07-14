@@ -54,9 +54,9 @@ func NewRateLimitingTransport(maximum int, Next http.RoundTripper) *RateLimiting
 // through the request chains.
 func (r *RateLimitingTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 	if r.throttling {
-		<-r.sema
+		r.sema <- struct{}{}
 		defer func() {
-			r.sema <- struct{}{}
+			<-r.sema
 		}()
 	}
 	return r.Next.RoundTrip(request)
