@@ -63,15 +63,19 @@ vessel run https://api.yourwebsite.com/data \
 ## 📊 Output Sample
 
 ```text
-Running 10s test @ https://yourwebsite.com
-50 connections
+Running 10.005226041s test @ http://localhost:8000/example
+0
 
 Summary:
-  Requests:     12000
-  Duration:     10.01s
-  Latency:      avg=8.3ms max=240ms p95=15ms
-  Errors:       2 timeouts, 3 connection resets
-  Throughput:   1.1MB/s
+  Requests:     37877 (3787 per second)
+  Duration:     10.005226041s
+  Latency:      max=9ms, avg=0.004620ms, p50=0ms, p75=0ms, p95=0ms, p99=0ms, p99.9=1ms
+  Errors:       2
+  Throughput:   0.08MB/s
+
+Breakdown
+        [200]: 37877
+
 ```
 
 ---

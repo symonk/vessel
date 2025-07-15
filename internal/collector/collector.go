@@ -133,17 +133,17 @@ func (e *EventCollector) Summarise() {
 
 	const tmpl = `
 
-Test against {{.Host}} finished after {{.RealTime}}.
+Running {{.RealTime}} test @ {{.Host}}
+{{.Connections}}
 
 Summary:
+  Requests:	{{.Count}} ({{.PerSecond}} per second)
+  Duration:	{{.RealTime}}
+  Latency:	{{.Latency}}
+  Errors:	{{.ErrorCount}}
+  Throughput:	{{.Throughput}}
 
-  Total Requests:		{{.Count}} ({{.PerSecond}} per second)
-  Duration:			{{.RealTime}}
-  Latency:			{{.Latency}}
-  Errors:			{{.ErrorCount}}
-  Throughput:			{{.Throughput}}
-
-  {{.Results}}
+{{.Results}}
 
 `
 	// TODO: Smarter use of different terms, if the test was < 1MB transffered for example
@@ -157,11 +157,12 @@ Summary:
 		Count:     e.latency.TotalCount(),
 		PerSecond: perSec,
 		// TODO: Less than millisecond precision support.
-		Latency:    latency,
-		Throughput: fmt.Sprintf("Mbs=%.2f", mbConsumed),
-		ErrorCount: len(e.errors),
-		RealTime:   done,
-		Results:    e.counter,
+		Latency:     latency,
+		Throughput:  fmt.Sprintf("%.2fMB/s", mbConsumed),
+		ErrorCount:  len(e.errors),
+		RealTime:    done,
+		Results:     e.counter,
+		Connections: e.cfg.Concurrency,
 	}
 	t, err := template.New("summary").Parse(tmpl)
 	if err != nil {
