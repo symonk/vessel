@@ -14,11 +14,14 @@
 
 ## 🏁 Features
 
-- Blazing fast HTTP/1.1 and HTTP/2 benchmarking
-- Real-time CLI metrics with latencies, throughput, and errors
-- JSON and CSV output formats
-- Custom headers, payloads, and methods
-- Concurrency and rate controls
+- Support for HTTP1, HTTP1/1 & HTTP/2
+- Real time CLI metrics with status breakdowns, grouped errors, latency and throughput etc
+- Store output data in JSON or CSV output formats
+- Supports custom auth mechanism, headers and payloads
+- Full HTTP method support
+- Concurrency and rate limiting controls
+- Tunable configuration
+- Templating and HTTP Sequences (coming soon)
 
 ---
 

@@ -52,17 +52,17 @@ type EventCollector struct {
 	started          time.Time
 	errors           []error
 	mu               sync.Mutex
-	latencyHistogram hdrhistogram.Histogram
+	latency          hdrhistogram.Histogram
 	bytesTransferred atomic.Int64
 }
 
 func New(writer io.Writer, cfg *config.Config) *EventCollector {
 	return &EventCollector{
-		counter:          NewStatusCodeCounter(),
-		cfg:              cfg,
-		writer:           writer,
-		started:          time.Now(),
-		latencyHistogram: *hdrhistogram.New(1, 60000, 3),
+		counter: NewStatusCodeCounter(),
+		cfg:     cfg,
+		writer:  writer,
+		started: time.Now(),
+		latency: *hdrhistogram.New(1, 60000, 3),
 	}
 }
 
@@ -82,7 +82,7 @@ func (e *EventCollector) Record(response *http.Response, sent time.Time, err err
 
 	// We have a semi-successful response (in that sense that no error was returned)
 	// Capture the histogram data for the latency of the response.
-	e.latencyHistogram.RecordValue(time.Since(sent).Milliseconds())
+	e.latency.RecordValue(time.Since(sent).Milliseconds())
 	e.counter.Increment(response.StatusCode)
 
 	// Read the full response body to update the bytes received
@@ -122,13 +122,13 @@ func (e *EventCollector) Summarise() {
 	total := e.counter.Count()
 	perSec := total / seconds
 	latency := fmt.Sprintf("max=%dms, avg=%fms, p50=%dms, p75=%dms, p95=%dms, p99=%dms, p99.9=%dms",
-		e.latencyHistogram.Max(),
-		e.latencyHistogram.Mean(),
-		e.latencyHistogram.ValueAtQuantile(50),
-		e.latencyHistogram.ValueAtQuantile(75),
-		e.latencyHistogram.ValueAtQuantile(90),
-		e.latencyHistogram.ValueAtQuantile(99),
-		e.latencyHistogram.ValueAtQuantile(99.9),
+		e.latency.Max(),
+		e.latency.Mean(),
+		e.latency.ValueAtQuantile(50),
+		e.latency.ValueAtQuantile(75),
+		e.latency.ValueAtQuantile(90),
+		e.latency.ValueAtQuantile(99),
+		e.latency.ValueAtQuantile(99.9),
 	)
 
 	const tmpl = `
@@ -154,7 +154,7 @@ Summary:
 	s := &Summary{
 		Host:      e.cfg.Endpoint,
 		Duration:  e.cfg.Duration.String(),
-		Count:     e.latencyHistogram.TotalCount(),
+		Count:     e.latency.TotalCount(),
 		PerSecond: perSec,
 		// TODO: Less than millisecond precision support.
 		Latency:    latency,
