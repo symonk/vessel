@@ -146,15 +146,19 @@ Summary:
   {{.Results}}
 
 `
-	bytesPerSecond := (e.bytesTransferred.Load() / int64(seconds))
-	mbConsumed := bytesPerSecond / (1024 * 1024)
+	// TODO: Smarter use of different terms, if the test was < 1MB transffered for example
+	// fallback to bytes/sec etc etc.
+	bytes := e.bytesTransferred.Load()
+	bytesPerSecond := (bytes / int64(seconds))
+	mbConsumed := float64(bytesPerSecond) / 1_000_000
 	s := &Summary{
-		Host:       e.cfg.Endpoint,
-		Duration:   e.cfg.Duration.String(),
-		Count:      e.latencyHistogram.TotalCount(),
-		PerSecond:  perSec,
+		Host:      e.cfg.Endpoint,
+		Duration:  e.cfg.Duration.String(),
+		Count:     e.latencyHistogram.TotalCount(),
+		PerSecond: perSec,
+		// TODO: Less than millisecond precision support.
 		Latency:    latency,
-		Throughput: fmt.Sprintf("Mbs=%d", mbConsumed),
+		Throughput: fmt.Sprintf("Mbs=%.2f", mbConsumed),
 		ErrorCount: len(e.errors),
 		RealTime:   done,
 		Results:    e.counter,

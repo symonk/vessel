@@ -197,7 +197,6 @@ func init() {
 	rootCmd.Flags().BoolVarP(&showCfg, showCfgFlag, "s", false, "Print cfg to stdout on startup")
 
 	// Specify required flags
-	rootCmd.MarkFlagsMutuallyExclusive(concurrencyFlag, durationFlag)
 	rootCmd.MarkFlagsMutuallyExclusive(durationFlag, numberFlag)
 
 	// Only allow a single non flag argument, which is the url/endpoint.
