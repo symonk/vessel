@@ -64,7 +64,7 @@ vessel run https://api.yourwebsite.com/data \
 
 ```text
 Running 10.005226041s test @ http://localhost:8000/example
-0
+100 Connections
 
 Summary:
   Requests:     37877 (3787 per second)

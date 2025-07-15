@@ -126,7 +126,7 @@ var rootCmd = &cobra.Command{
 
 		// Disallow negative concurrency.
 		if cmd.Flags().Changed(concurrencyFlag) {
-			cfg.Concurrency = max(0, cfg.MaxRPS)
+			cfg.Concurrency = max(0, cfg.Concurrency)
 		}
 
 		// Handle basic auth if provided by the user

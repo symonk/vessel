@@ -134,7 +134,7 @@ func (e *EventCollector) Summarise() {
 	const tmpl = `
 
 Running {{.RealTime}} test @ {{.Host}}
-{{.Connections}}
+{{.Connections}} Connections
 
 Summary:
   Requests:	{{.Count}} ({{.PerSecond}} per second)
