@@ -4,86 +4,101 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"strings"
+	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/HdrHistogram/hdrhistogram-go"
 	"github.com/symonk/vessel/internal/config"
 )
 
-// StatusBucket houses the breakdown of how many
-// of each status code was received for all requests.
-type StatusBucket map[int]int
-
-// String implements fmt.Stringer and returns a formatted
-// breakdown of responses.
-func (s StatusBucket) String() string {
-	var b strings.Builder
-	b.WriteString("Response Breakdown:\n")
-	for k, v := range s {
-		b.WriteString("\n")
-		b.WriteString(fmt.Sprintf("\t[%d]: %d", k, v))
-	}
-	return b.String()
-
+// Recorder is the interface for something which records metrics from
+// a HTTP Request->Response interactions.
+type Recorder interface {
+	Record(response *http.Response, sent time.Time, err error)
 }
 
-// Count returns the total count of responses in the map.
-func (s StatusBucket) Count() int {
-	var c int
-	for k := range s {
-		c += s[k]
-	}
-	return c
-}
-
-type ResultCollector interface {
-	RecordSuccess(code int, latencyMilliseconds int64)
-	RecordFailure(err error)
+// Summariser is the interface for something which can display summary
+// information.
+type Summariser interface {
 	Summarise()
 }
 
-// EventCollecter collects metrics of interest throughout
-// the execution and can summarise those to an output
-// stream.
+type ResultCollector interface {
+	Summariser
+	Recorder
+}
+
+// EventCollector collects execution data during the lifecycle of
+// vessell in order to build a meaningful summary.
+//
+// EventCollector captures information on the following metrics:
+//
+// - Latency (p50, p75, p90, p99)
+// - Throughput
+// - Errors
+// - Response status code spreads
+// - Indepth metrics throughout the HTTP lifecycle, including:
+//
+// - Time until first response byte
+// - Time spent performing DNS lookups
+// - Time spent in the TLS Handshake
+// - Time spent managing connections
 type EventCollector struct {
+	counter          *StatusCodeCounter
+	cfg              *config.Config
 	writer           io.Writer
 	started          time.Time
-	cfg              *config.Config
-	bucket           StatusBucket
-	mu               sync.Mutex
 	errors           []error
+	mu               sync.Mutex
 	latencyHistogram hdrhistogram.Histogram
+	bytesTransferred atomic.Int64
 }
 
 func New(writer io.Writer, cfg *config.Config) *EventCollector {
 	return &EventCollector{
-		writer:           writer,
+		counter:          NewStatusCodeCounter(),
 		cfg:              cfg,
+		writer:           writer,
 		started:          time.Now(),
-		bucket:           make(StatusBucket),
 		latencyHistogram: *hdrhistogram.New(1, 60000, 3),
 	}
 }
 
-// RecordSuccess atomically records a success
-func (e *EventCollector) RecordSuccess(code int, latency int64) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	e.latencyHistogram.RecordValue(latency)
-	_, ok := e.bucket[code]
-	if !ok {
-		e.bucket[code] = 1
+// Record captures information about the completed request.
+// It keeps mutex locking to a minimum where possible and favours
+// CPU atomic operations where possible.
+func (e *EventCollector) Record(response *http.Response, sent time.Time, err error) {
+	// It is possible response is nil in error cases.
+	// Keep a reference to the error, we will categorise them later
+	// based on the different types.
+	if err != nil {
+		e.mu.Lock()
+		defer e.mu.Unlock()
+		e.errors = append(e.errors, err)
 		return
 	}
-	e.bucket[code] += 1
-}
 
-func (e *EventCollector) RecordFailure(err error) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	e.errors = append(e.errors, err)
+	// We have a semi-successful response (in that sense that no error was returned)
+	// Capture the histogram data for the latency of the response.
+	e.latencyHistogram.RecordValue(time.Since(sent).Milliseconds())
+	e.counter.Increment(response.StatusCode)
+
+	// Read the full response body to update the bytes received
+	// TODO: This is experimental, probably can't do it here safely.
+	bytes, err := io.ReadAll(response.Body)
+	if err != nil {
+		return
+	}
+	defer response.Body.Close() // TODO: This is dangerous for transports potentially later.
+	e.bytesTransferred.Add(int64(len(bytes)))
+
+	//
+
+	//
+
+	//
 }
 
 // Summarise calculates the final summary prior to exiting.
@@ -104,7 +119,7 @@ func (e *EventCollector) Summarise() {
 	}
 
 	seconds := max(1, int(e.cfg.Duration.Seconds()))
-	total := e.bucket.Count()
+	total := e.counter.Count()
 	perSec := total / seconds
 	latency := fmt.Sprintf("max=%dms, avg=%fms, p50=%dms, p75=%dms, p95=%dms, p99=%dms, p99.9=%dms",
 		e.latencyHistogram.Max(),
@@ -140,7 +155,7 @@ Summary:
 		Throughput: "1.1MB/s",
 		ErrorCount: len(e.errors),
 		RealTime:   done,
-		Results:    e.bucket,
+		Results:    e.counter,
 	}
 	t, err := template.New("summary").Parse(tmpl)
 	if err != nil {
@@ -163,5 +178,5 @@ type Summary struct {
 	Throughput string
 	ErrorCount int
 	RealTime   time.Duration
-	Results    StatusBucket
+	Results    *StatusCodeCounter
 }

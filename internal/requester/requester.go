@@ -45,7 +45,7 @@ func New(ctx context.Context, cfg *config.Config, collector collector.ResultColl
 			Timeout: cfg.Timeout,
 			Transport: NewRateLimitingTransport(
 				cfg.MaxRPS,
-				&CollectableTransport{
+				&CollectingTransport{
 					Collector: collector,
 					Next:      http.DefaultTransport,
 				}),
