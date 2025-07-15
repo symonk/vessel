@@ -141,18 +141,20 @@ Summary:
   Duration:			{{.RealTime}}
   Latency:			{{.Latency}}
   Errors:			{{.ErrorCount}}
-  Throughput:			1.1MB/s
+  Throughput:			{{.Throughput}}
 
   {{.Results}}
 
 `
+	bytesPerSecond := (e.bytesTransferred.Load() / int64(seconds))
+	mbConsumed := bytesPerSecond / (1024 * 1024)
 	s := &Summary{
 		Host:       e.cfg.Endpoint,
 		Duration:   e.cfg.Duration.String(),
 		Count:      e.latencyHistogram.TotalCount(),
 		PerSecond:  perSec,
 		Latency:    latency,
-		Throughput: "1.1MB/s",
+		Throughput: fmt.Sprintf("Mbs=%d", mbConsumed),
 		ErrorCount: len(e.errors),
 		RealTime:   done,
 		Results:    e.counter,
