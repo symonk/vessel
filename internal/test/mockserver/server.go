@@ -19,6 +19,7 @@ type MockServer struct {
 	Server *httptest.Server
 	mux    *http.ServeMux
 	Seen   atomic.Int64
+	Errors atomic.Int64
 }
 
 // New instantiates a new MockServer and returns a ptr to it.
@@ -53,11 +54,13 @@ func WithStatusCodeTestHandler() ServerOption {
 			parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/status/"), "/")
 			if len(parts) < 1 {
 				http.Error(w, "missing status code", http.StatusBadRequest)
+				m.Errors.Add(1)
 				return
 			}
 
 			code, err := strconv.Atoi(parts[0])
 			if err != nil || code < 100 || code > 599 {
+				m.Errors.Add(1)
 				http.Error(w, "invalid status code", http.StatusBadRequest)
 				return
 			}
