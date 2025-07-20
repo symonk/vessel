@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
@@ -74,13 +73,8 @@ var rootCmd = &cobra.Command{
 			return errors.New("-n or -d must not be zero when supplied")
 		}
 
-		// build the single template templateRequest to clone later.
-		templateRequest, err := http.NewRequest(
-			cfg.Method,
-			cfg.Endpoint,
-			nil, // TODO: Allow body string or path to file for non GET
-		)
-
+		// build the single req req to clone later.
+		req, err := requester.GenerateTemplateRequest(cfg)
 		if err != nil {
 			return fmt.Errorf("unable to create request: %v", err)
 		}
@@ -116,7 +110,7 @@ var rootCmd = &cobra.Command{
 		// Do this early so we can enforce the special case headers later.
 		if cmd.Flags().Changed(headersFlag) {
 			headers := validation.ParseHTTPHeaders(cfg.Headers).Clone()
-			templateRequest.Header = headers
+			req.Header = headers
 		}
 
 		// Disallow negative MaxRPS.
@@ -135,13 +129,13 @@ var rootCmd = &cobra.Command{
 			if err != nil {
 				return err
 			}
-			templateRequest.SetBasicAuth(basicAuthUser, basicAuthPw)
+			req.SetBasicAuth(basicAuthUser, basicAuthPw)
 		}
 
 		// Handle custom host header if provided by the user
 		// Host header has special treatment and is not a traditional header
 		if cmd.Flags().Changed(hostHeaderFlag) {
-			templateRequest.Host = cfg.Host
+			req.Host = cfg.Host
 		}
 
 		// Handle a custom user agent if provided by the user
@@ -150,7 +144,7 @@ var rootCmd = &cobra.Command{
 		if cmd.Flags().Changed(userAgentFlag) {
 			cfg.UserAgent += fmt.Sprintf("%s ", uA)
 		}
-		templateRequest.Header.Set(userAgentHeader, cfg.UserAgent)
+		req.Header.Set(userAgentHeader, cfg.UserAgent)
 
 		collector := collector.New(out, cfg)
 
@@ -165,7 +159,7 @@ var rootCmd = &cobra.Command{
 			ctx,
 			cfg,
 			collector,
-			templateRequest,
+			req,
 		)
 		requester.Wait()
 		collector.Summarise()
