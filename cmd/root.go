@@ -196,4 +196,7 @@ func init() {
 	// Only allow a single non flag argument, which is the url/endpoint.
 	rootCmd.Args = cobra.ExactArgs(1)
 
+	// Apply the current working version of vessel into the config
+	cfg.Version = Version
+
 }

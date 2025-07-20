@@ -16,7 +16,7 @@ import (
 // Recorder is the interface for something which records metrics from
 // a HTTP Request->Response interactions.
 type Recorder interface {
-	Record(response *http.Response, sent time.Time, err error)
+	Record(response *http.Response, latency time.Duration, receivedBytes int64, sentBytes int64, err error)
 }
 
 // Summariser is the interface for something which can display summary
@@ -35,7 +35,7 @@ type ResultCollector interface {
 //
 // EventCollector captures information on the following metrics:
 //
-// - Latency (p50, p75, p90, p99)
+// - Latency (p90, p95, p99)
 // - Throughput
 // - Errors
 // - Response status code spreads
@@ -46,30 +46,31 @@ type ResultCollector interface {
 // - Time spent in the TLS Handshake
 // - Time spent managing connections
 type EventCollector struct {
-	counter          *StatusCodeCounter
-	cfg              *config.Config
-	writer           io.Writer
-	started          time.Time
-	errors           []error
-	mu               sync.Mutex
-	latency          hdrhistogram.Histogram
-	bytesTransferred atomic.Int64
+	counter              *StatusCodeCounter
+	cfg                  *config.Config
+	writer               io.Writer
+	collectionRegistered time.Time
+	errors               []error
+	mu                   sync.Mutex
+	latency              hdrhistogram.Histogram
+	bytesReceived        atomic.Int64
+	bytesSent            atomic.Int64
 }
 
 func New(writer io.Writer, cfg *config.Config) *EventCollector {
 	return &EventCollector{
-		counter: NewStatusCodeCounter(),
-		cfg:     cfg,
-		writer:  writer,
-		started: time.Now(),
-		latency: *hdrhistogram.New(1, 60000, 3),
+		counter:              NewStatusCodeCounter(),
+		cfg:                  cfg,
+		writer:               writer,
+		collectionRegistered: time.Now(),
+		latency:              *hdrhistogram.New(1, 60000, 3),
 	}
 }
 
 // Record captures information about the completed request.
 // It keeps mutex locking to a minimum where possible and favours
 // CPU atomic operations where possible.
-func (e *EventCollector) Record(response *http.Response, sent time.Time, err error) {
+func (e *EventCollector) Record(response *http.Response, latency time.Duration, bytesSent int64, bytesReceived int64, err error) {
 	// It is possible response is nil in error cases.
 	// Keep a reference to the error, we will categorise them later
 	// based on the different types.
@@ -77,28 +78,22 @@ func (e *EventCollector) Record(response *http.Response, sent time.Time, err err
 		e.mu.Lock()
 		defer e.mu.Unlock()
 		e.errors = append(e.errors, err)
+		// TODO: Error grouping for smarter summarising.
+		// TODO: Implement a way to 'classify' the errors into appropriate groups.
 		return
 	}
 
 	// We have a semi-successful response (in that sense that no error was returned)
 	// Capture the histogram data for the latency of the response.
-	e.latency.RecordValue(time.Since(sent).Milliseconds())
+	e.latency.RecordValue(latency.Milliseconds())
 	e.counter.Increment(response.StatusCode)
 
-	// Read the full response body to update the bytes received
-	// TODO: This is experimental, probably can't do it here safely.
-	bytes, err := io.ReadAll(response.Body)
-	if err != nil {
-		return
-	}
-	defer response.Body.Close() // TODO: This is dangerous for transports potentially later.
-	e.bytesTransferred.Add(int64(len(bytes)))
-
-	//
-
-	//
-
-	//
+	// Track the byte size of the initial request aswell as content type of
+	// the response from the server.  The collector is not responsible for
+	// reading the response, this should be handled elsewhere to ensure safety
+	// of reading responses and avoiding attempting multiple reads etc.
+	e.bytesReceived.Add(bytesReceived)
+	e.bytesSent.Add(bytesSent)
 }
 
 // Summarise calculates the final summary prior to exiting.
@@ -112,7 +107,7 @@ func (e *EventCollector) Record(response *http.Response, sent time.Time, err err
 // TODO: Wire in latency breakdowns from httptrace for:
 // TODO: DNS resolution, TCP connection time, TLS handshake time, Time to first byte, total response time.
 func (e *EventCollector) Summarise() {
-	done := time.Since(e.started)
+	done := time.Since(e.collectionRegistered)
 	reasons := make([]string, len(e.errors))
 	for i, e := range e.errors {
 		reasons[i] = e.Error()
@@ -131,7 +126,7 @@ func (e *EventCollector) Summarise() {
 
 	const tmpl = `
 
-Running {{.RealTime}} test @ {{.Host}}
+Running {{.RealTime}} test @ {{.Host}} [vessel-{{.Version}}]
 {{.Connections}} Connections
 
 Summary:
@@ -139,28 +134,35 @@ Summary:
   Duration:	{{.RealTime}}
   Latency:	{{.Latency}}
   Errors:	{{.ErrorCount}}
-  Throughput:	{{.Throughput}}
+  BytesReceived:	{{.BytesReceived}}
+  BytesSent:	{{.BytesSent}}
 
 {{.Results}}
-
 `
 	// TODO: Smarter use of different terms, if the test was < 1MB transffered for example
-	// fallback to bytes/sec etc etc.
-	bytes := e.bytesTransferred.Load()
-	bytesPerSecond := (bytes / int64(seconds))
-	mbConsumed := float64(bytesPerSecond) / 1_000_000
+	// fallback to bytesReceived/sec etc etc.
+	bytesReceived := e.bytesReceived.Load()
+	receivedBytesPerSecond := (bytesReceived / int64(seconds))
+	receivedMegabytes := float64(receivedBytesPerSecond) / 1_000_000
+
+	bytesSent := e.bytesSent.Load()
+	sentBytesPerSecond := (bytesSent / int64(seconds))
+	sentMegabytes := float64(sentBytesPerSecond) / 1_000_000
+
 	s := &Summary{
 		Host:      e.cfg.Endpoint,
 		Duration:  e.cfg.Duration.String(),
 		Count:     e.latency.TotalCount(),
 		PerSecond: perSec,
 		// TODO: Less than millisecond precision support.
-		Latency:     latency,
-		Throughput:  fmt.Sprintf("%.2fMB/s", mbConsumed),
-		ErrorCount:  len(e.errors),
-		RealTime:    done,
-		Results:     e.counter,
-		Connections: e.cfg.Concurrency,
+		Latency:       latency,
+		BytesReceived: fmt.Sprintf("%.2fMB/s", receivedMegabytes),
+		BytesSent:     fmt.Sprintf("%.2fMB/s", sentMegabytes),
+		ErrorCount:    len(e.errors),
+		RealTime:      done,
+		Results:       e.counter,
+		Connections:   e.cfg.Concurrency,
+		Version:       e.cfg.Version,
 	}
 	t, err := template.New("summary").Parse(tmpl)
 	if err != nil {

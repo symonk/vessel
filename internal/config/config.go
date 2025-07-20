@@ -21,6 +21,7 @@ type Config struct {
 	Headers         []string
 	Amount          int64
 	FollowRedirects bool
+	Version         string
 }
 
 func (c *Config) String() string {

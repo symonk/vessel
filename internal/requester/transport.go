@@ -2,29 +2,7 @@ package requester
 
 import (
 	"net/http"
-	"time"
-
-	"github.com/symonk/vessel/internal/collector"
 )
-
-// CollectingTransport enables publishing 'metrics' to
-// the collector as part of request->response flow.
-type CollectingTransport struct {
-	Collector collector.ResultCollector
-	Next      http.RoundTripper
-}
-
-// RoundTrip collects and publishes metrics to the collector for each individual
-// request/response.
-func (c *CollectingTransport) RoundTrip(request *http.Request) (*http.Response, error) {
-	start := time.Now()
-	response, err := c.Next.RoundTrip(request)
-	latency := time.Since(start)
-	// TODO: Figure out the mechanism for passing data through to the collector
-	_ = latency
-	c.Collector.Record(response, start, err)
-	return response, err
-}
 
 // RateLimitingTransport allows limiting max RPS
 // at the transport layer
