@@ -63,19 +63,25 @@ vessel run https://api.yourwebsite.com/data \
 ## 📊 Output Sample
 
 ```text
-Running 10.005226041s test @ http://localhost:8000/example
-100 Connections
+Running 106.30525ms test @ http://localhost:8000 [vessel-v0.0.1]
+10 Connections
 
 Summary:
-  Requests:     37877 (3787 per second)
-  Duration:     10.005226041s
-  Latency:      max=9ms, avg=0.004620ms, p50=0ms, p75=0ms, p95=0ms, p99=0ms, p99.9=1ms
-  Errors:       2
-  Throughput:   0.08MB/s
+  Requests:             7 (7 per second)
+  Duration:             106.30525ms
+  Latency:              max=106ms, avg=23.857143ms, p90=11ms, p95=106ms, p99=106ms
+  Errors:               Total: 3: Timeout(0), Cancelled(0), Connection(0), Unknown(3)
+  BytesReceived:        0.00MB/s
+  BytesSent:            0.01MB/s
 
 Breakdown
-        [200]: 37877
+        [200]: 7
 
+
+Raw Errors:
+Get &#34;http://localhost:8000&#34;: read tcp [::1]:59917-&gt;[::1]:8000: read: connection reset by peer
+Get &#34;http://localhost:8000&#34;: write tcp [::1]:59916-&gt;[::1]:8000: write: broken pipe
+Get &#34;http://localhost:8000&#34;: write tcp [::1]:59918-&gt;[::1]:8000: write: broken pipe
 ```
 
 ---
