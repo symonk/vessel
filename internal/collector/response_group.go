@@ -31,6 +31,8 @@ func (s *StatusCodeCounter) Increment(code int) {
 // codes.
 // TODO: can use strings.Builder
 func (s *StatusCodeCounter) String() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	str := "Breakdown\n"
 	for k, v := range s.m {
 		str += fmt.Sprintf("\t[%d]: %d", k, v)
@@ -42,6 +44,8 @@ func (s *StatusCodeCounter) String() string {
 // Count returns the total number of responses that have been
 // recorded by the code grouper instance
 func (s *StatusCodeCounter) Count() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	t := 0
 	for _, v := range s.m {
 		t += v

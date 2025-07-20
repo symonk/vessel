@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -50,7 +51,8 @@ type EventCollector struct {
 	cfg                  *config.Config
 	writer               io.Writer
 	collectionRegistered time.Time
-	errors               []error
+	rawErrors            error
+	errGrouper           *ErrorGrouper
 	mu                   sync.Mutex
 	latency              hdrhistogram.Histogram
 	bytesReceived        atomic.Int64
@@ -64,6 +66,8 @@ func New(writer io.Writer, cfg *config.Config) *EventCollector {
 		writer:               writer,
 		collectionRegistered: time.Now(),
 		latency:              *hdrhistogram.New(1, 60000, 3),
+		rawErrors:            nil,
+		errGrouper:           NewErrGrouper(),
 	}
 }
 
@@ -77,7 +81,8 @@ func (e *EventCollector) Record(response *http.Response, latency time.Duration, 
 	if err != nil {
 		e.mu.Lock()
 		defer e.mu.Unlock()
-		e.errors = append(e.errors, err)
+		e.rawErrors = errors.Join(e.rawErrors, err)
+		e.errGrouper.Record(err)
 		// TODO: Error grouping for smarter summarising.
 		// TODO: Implement a way to 'classify' the errors into appropriate groups.
 		return
@@ -108,11 +113,6 @@ func (e *EventCollector) Record(response *http.Response, latency time.Duration, 
 // TODO: DNS resolution, TCP connection time, TLS handshake time, Time to first byte, total response time.
 func (e *EventCollector) Summarise() {
 	done := time.Since(e.collectionRegistered)
-	reasons := make([]string, len(e.errors))
-	for i, e := range e.errors {
-		reasons[i] = e.Error()
-	}
-
 	seconds := max(1, int(e.cfg.Duration.Seconds()))
 	total := e.counter.Count()
 	perSec := total / seconds
@@ -124,20 +124,24 @@ func (e *EventCollector) Summarise() {
 		e.latency.ValueAtQuantile(99),
 	)
 
+	// TODO: Be smarter here, capture terminal width and size appropriately.
 	const tmpl = `
 
 Running {{.RealTime}} test @ {{.Host}} [vessel-{{.Version}}]
 {{.Connections}} Connections
 
 Summary:
-  Requests:	{{.Count}} ({{.PerSecond}} per second)
-  Duration:	{{.RealTime}}
-  Latency:	{{.Latency}}
-  Errors:	{{.ErrorCount}}
+  Requests:		{{.Count}} ({{.PerSecond}} per second)
+  Duration:		{{.RealTime}}
+  Latency:		{{.Latency}}
+  Errors:		{{.Errors}}
   BytesReceived:	{{.BytesReceived}}
-  BytesSent:	{{.BytesSent}}
+  BytesSent:		{{.BytesSent}}
 
 {{.Results}}
+
+Raw Errors:
+{{.RawErrors}}
 `
 	// TODO: Smarter use of different terms, if the test was < 1MB transffered for example
 	// fallback to bytesReceived/sec etc etc.
@@ -158,7 +162,8 @@ Summary:
 		Latency:       latency,
 		BytesReceived: fmt.Sprintf("%.2fMB/s", receivedMegabytes),
 		BytesSent:     fmt.Sprintf("%.2fMB/s", sentMegabytes),
-		ErrorCount:    len(e.errors),
+		RawErrors:     e.rawErrors,
+		Errors:        e.errGrouper.String(),
 		RealTime:      done,
 		Results:       e.counter,
 		Connections:   e.cfg.Concurrency,

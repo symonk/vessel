@@ -11,8 +11,11 @@ type Summary struct {
 	Latency       string
 	BytesReceived string
 	BytesSent     string
-	ErrorCount    int
-	RealTime      time.Duration
-	Results       *StatusCodeCounter
-	Connections   int
+	// TODO: This will likely go away, debug aid for now while building the error grouper.
+	// This is a single 'joined' error for now.
+	RawErrors   error
+	Errors      string
+	RealTime    time.Duration
+	Results     *StatusCodeCounter
+	Connections int
 }
