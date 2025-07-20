@@ -121,14 +121,12 @@ func (e *EventCollector) Summarise() {
 	seconds := max(1, int(e.cfg.Duration.Seconds()))
 	total := e.counter.Count()
 	perSec := total / seconds
-	latency := fmt.Sprintf("max=%dms, avg=%fms, p50=%dms, p75=%dms, p95=%dms, p99=%dms, p99.9=%dms",
+	latency := fmt.Sprintf("max=%dms, avg=%fms, p90=%dms, p95=%dms, p99=%dms",
 		e.latency.Max(),
 		e.latency.Mean(),
-		e.latency.ValueAtQuantile(50),
-		e.latency.ValueAtQuantile(75),
 		e.latency.ValueAtQuantile(90),
+		e.latency.ValueAtQuantile(95),
 		e.latency.ValueAtQuantile(99),
-		e.latency.ValueAtQuantile(99.9),
 	)
 
 	const tmpl = `
