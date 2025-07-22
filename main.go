@@ -6,8 +6,15 @@ import (
 	"os/signal"
 	"syscall"
 
+	"net"
+
 	"github.com/symonk/vessel/cmd"
 )
+
+// TODO: Remove me later
+func init() {
+	net.DefaultResolver.PreferGo = true
+}
 
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
