@@ -2,13 +2,16 @@ package requester
 
 import (
 	"context"
+	"crypto/tls"
 	"io"
 	"net/http"
+	"net/http/httptrace"
 	"sync"
 	"time"
 
 	"github.com/symonk/vessel/internal/collector"
 	"github.com/symonk/vessel/internal/config"
+	"github.com/symonk/vessel/internal/trace"
 )
 
 type RequestResult struct {
@@ -49,7 +52,16 @@ func New(ctx context.Context, cfg *config.Config, collector collector.ResultColl
 			Transport: NewRateLimitingTransport(
 				cfg.MaxRPS,
 				&RateLimitingTransport{
-					Next: http.DefaultTransport,
+					// TODO: Overhaul this.
+					Next: &http.Transport{
+						Proxy:                 http.ProxyFromEnvironment,
+						ForceAttemptHTTP2:     true,
+						MaxIdleConns:          100,
+						MaxIdleConnsPerHost:   100,
+						IdleConnTimeout:       90 * time.Second,
+						TLSHandshakeTimeout:   10 * time.Second,
+						ExpectContinueTimeout: 1 * time.Second,
+					},
 				}),
 		},
 		template: template,
@@ -109,6 +121,37 @@ func (h *HTTPRequester) spawn(count int) {
 			ctx, cancel := getCtx(h.cfg.Duration)
 			defer cancel()
 			r := h.template.Clone(ctx)
+
+			// establish some trace vars
+			traceData := new(trace.Trace)
+			tracer := &httptrace.ClientTrace{
+				DNSStart: func(info httptrace.DNSStartInfo) {
+					traceData.DnsStart = time.Now()
+				},
+				DNSDone: func(info httptrace.DNSDoneInfo) {
+					traceData.DnsDone = time.Since(traceData.DnsStart)
+				},
+				ConnectStart: func(network string, addr string) {
+					traceData.ConnectStart = time.Now()
+				},
+				ConnectDone: func(network string, addr string, err error) {
+					traceData.ConnectDone = time.Since(traceData.ConnectStart)
+				},
+				TLSHandshakeStart: func() {
+					traceData.TlsStart = time.Now()
+				},
+				TLSHandshakeDone: func(state tls.ConnectionState, err error) {
+					traceData.TlsDone = time.Since(traceData.TlsStart)
+				},
+			}
+
+			// initialise the request with the tracing capabilities wrapped.
+			// the client houses a total timeout provided on the command line
+			// so a background ctx is sufficient here.  Store the tracing
+			// information within it for later use.
+			c := context.WithValue(context.Background(), trace.TraceDataKey, traceData)
+			r = r.WithContext(httptrace.WithClientTrace(c, tracer))
+
 			seen++
 			h.workerCh <- r
 		}
@@ -123,6 +166,7 @@ func worker(collector collector.ResultCollector, wg *sync.WaitGroup, client *htt
 			continue
 		}
 		start := time.Now()
+
 		response, err := client.Do(req)
 		// TODO: Need to capture the request bytes sent over the wire to help paint a better
 		// picture during summarisation of the throughput hueristics.

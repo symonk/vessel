@@ -18,4 +18,5 @@ type Summary struct {
 	RealTime    time.Duration
 	Results     *StatusCodeCounter
 	Connections int
+	Waiting     string
 }

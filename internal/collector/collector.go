@@ -12,6 +12,7 @@ import (
 
 	"github.com/HdrHistogram/hdrhistogram-go"
 	"github.com/symonk/vessel/internal/config"
+	"github.com/symonk/vessel/internal/trace"
 )
 
 // Recorder is the interface for something which records metrics from
@@ -57,6 +58,9 @@ type EventCollector struct {
 	latency              hdrhistogram.Histogram
 	bytesReceived        atomic.Int64
 	bytesSent            atomic.Int64
+	waitingDns           time.Duration
+	waitingTls           time.Duration
+	waitingConnect       time.Duration
 }
 
 func New(writer io.Writer, cfg *config.Config) *EventCollector {
@@ -86,6 +90,18 @@ func (e *EventCollector) Record(response *http.Response, latency time.Duration, 
 		// TODO: Error grouping for smarter summarising.
 		// TODO: Implement a way to 'classify' the errors into appropriate groups.
 		return
+	}
+
+	// Pull out 'trace' data from the requests to paint a better picture in the summary
+	// of how time was spent from a granular point of view.
+	v := response.Request.Context().Value(trace.TraceDataKey)
+	t, ok := v.(*trace.Trace)
+	if ok {
+		e.mu.Lock()
+		e.waitingDns += t.DnsDone
+		e.waitingTls += t.TlsDone
+		e.waitingConnect += t.ConnectDone
+		e.mu.Unlock()
 	}
 
 	// We have a semi-successful response (in that sense that no error was returned)
@@ -132,6 +148,7 @@ Running {{.RealTime}} test @ {{.Host}} [vessel-{{.Version}}]
 
 Summary:
   Requests:		{{.Count}} ({{.PerSecond}} per second)
+  Waiting:		{{.Waiting}}
   Duration:		{{.RealTime}}
   Latency:		{{.Latency}}
   Errors:		{{.Errors}}
@@ -140,7 +157,7 @@ Summary:
 
 {{.Results}}
 
-Raw Errors:
+Raw (Debug):
 {{.RawErrors}}
 `
 	// TODO: Smarter use of different terms, if the test was < 1MB transffered for example
@@ -152,6 +169,23 @@ Raw Errors:
 	bytesSent := e.bytesSent.Load()
 	sentBytesPerSecond := (bytesSent / int64(seconds))
 	sentMegabytes := float64(sentBytesPerSecond) / 1_000_000
+
+	// calculate granular breakdowns
+	waitDns := e.waitingDns.Seconds()
+	waitTls := e.waitingTls.Seconds()
+	waitConnect := e.waitingConnect.Seconds()
+
+	totalDuration := max(e.cfg.Duration.Seconds(), 1)
+
+	dnsPercent := (waitDns / totalDuration) * 100
+	tlsPercent := (waitTls / totalDuration) * 100
+	connectPercent := (waitConnect / totalDuration) * 100
+
+	waiting := fmt.Sprintf("[%.2f%%] Resolving DNS (%.2fs), [%.2f%%] TLS Handshake (%.2fs), [%.2f%%] Connecting (%.2fs)",
+		dnsPercent, waitDns,
+		tlsPercent, waitTls,
+		connectPercent, waitConnect,
+	)
 
 	s := &Summary{
 		Host:      e.cfg.Endpoint,
@@ -168,6 +202,7 @@ Raw Errors:
 		Results:       e.counter,
 		Connections:   e.cfg.Concurrency,
 		Version:       e.cfg.Version,
+		Waiting:       waiting,
 	}
 	t, err := template.New("summary").Parse(tmpl)
 	if err != nil {

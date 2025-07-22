@@ -33,7 +33,7 @@ func (s *StatusCodeCounter) Increment(code int) {
 func (s *StatusCodeCounter) String() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	str := "Breakdown\n"
+	str := "Response Codes Breakdown\n"
 	for k, v := range s.m {
 		str += fmt.Sprintf("\t[%d]: %d", k, v)
 		str += "\n"

@@ -78,19 +78,6 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("unable to create request: %v", err)
 		}
-		/*
-			QuietSet: TODO: Suppress output and be aware of suppressing output throughout. [done]
-			BasicAuth: TODO: Add b64 authorisation basic auth header to requests. [done]
-			Host: TODO: Add Host header to requests. [done]
-			UserAgent: TODO: Append user defined user agent, default to something identifying the tool. [done]
-			Headers: TODO: Allow arbitrary `-H K:V` header value pairs. [done]
-			MaxRPS: TODO: Somehow throttle max requests per second. [done]
-			Concurrency: TODO: fan out worker pool of concurrency count. [wip]
-			Duration: TODO: Exit after fixed duration, smart use of contexts an proper cleanup.
-			Output: TODO: Allow JSON/CSV resultsets, keep it extensible for future.
-			Timeout: TODO: Per request timeouts (read etc).
-			HTTP2: TODO: Enable http2 negotiation, careful we are using our own transport impl (not implicit).
-		*/
 
 		// Ensure the endpoint is actual a valid URL
 		// TODO: Do we want to enforce host/scheme specifics?
@@ -180,7 +167,7 @@ func init() {
 	rootCmd.Flags().IntVarP(&cfg.Concurrency, concurrencyFlag, "c", 10, "Number of concurrent requests")
 	rootCmd.Flags().DurationVarP(&cfg.Duration, durationFlag, "d", 0, "Duration to send requests for (must be parsable by time.ParseDuration)")
 	rootCmd.Flags().StringVarP(&cfg.Method, methodFlag, "m", "GET", "HTTP Verb to perform")
-	rootCmd.Flags().DurationVarP(&cfg.Timeout, timeoutFlag, "t", 0, "Requests before terminating the request (must be parsable by time.ParseDuration)")
+	rootCmd.Flags().DurationVarP(&cfg.Timeout, timeoutFlag, "t", 0, "Per Request timeout before terminating the request (must be parsable by time.ParseDuration)")
 	rootCmd.Flags().BoolVar(&cfg.HTTP2, http2Flag, false, "Enable HTTP/2 support")
 	rootCmd.Flags().StringVar(&cfg.Host, hostHeaderFlag, "", "Set a custom HOST header")
 	rootCmd.Flags().StringVarP(&cfg.UserAgent, userAgentFlag, "u", "", "Set a custom user agent header, this is always suffixed with the tools user agent")
