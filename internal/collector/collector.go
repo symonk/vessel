@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"io"
 	"net/http"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -62,6 +63,7 @@ type EventCollector struct {
 	waitingTls           time.Duration
 	waitingConnect       time.Duration
 	newConnections       atomic.Int64
+	waitingGetConn       time.Duration
 }
 
 func New(writer io.Writer, cfg *config.Config) *EventCollector {
@@ -102,6 +104,7 @@ func (e *EventCollector) Record(response *http.Response, latency time.Duration, 
 		e.waitingDns += t.DnsDone
 		e.waitingTls += t.TlsDone
 		e.waitingConnect += t.ConnectDone
+		e.waitingGetConn += t.GotConnection
 		e.mu.Unlock()
 	}
 
@@ -152,7 +155,7 @@ func (e *EventCollector) Summarise() {
 	const tmpl = `
 
 Running {{.RealTime}} test @ {{.Host}} [vessel-{{.Version}}]
-{{.Connections}} Connections
+{{.Connections}} Goroutines | {{.MaxProcs}} Cores
 
 Summary:
   Requests:		{{.Count}} ({{.PerSecond}} per second)
@@ -180,17 +183,20 @@ Summary:
 	waitDns := e.waitingDns.Seconds()
 	waitTls := e.waitingTls.Seconds()
 	waitConnect := e.waitingConnect.Seconds()
+	waitGettingConn := e.waitingGetConn.Seconds()
 
 	totalDuration := max(e.cfg.Duration.Seconds(), 1)
 
 	dnsPercent := (waitDns / totalDuration) * 100
 	tlsPercent := (waitTls / totalDuration) * 100
 	connectPercent := (waitConnect / totalDuration) * 100
+	gettingConnPercent := (waitGettingConn / totalDuration) * 100
 
-	waiting := fmt.Sprintf("[%.2f%%] Resolving DNS (%.2fs), [%.2f%%] TLS Handshake (%.2fs), [%.2f%%] Connecting (%.2fs)",
-		dnsPercent, waitDns,
-		tlsPercent, waitTls,
-		connectPercent, waitConnect,
+	waiting := fmt.Sprintf("[%.2f%%] Resolving DNS (%.2fs), [%.2f%%] TLS Handshake (%.2fs), [%.2f%%] Connecting (%.2fs) [%.2f%%] Getting Connections (%.2fs)",
+		dnsPercent, waitDns/float64(e.cfg.Concurrency),
+		tlsPercent, waitTls/float64(e.cfg.Concurrency),
+		connectPercent, waitConnect/float64(e.cfg.Concurrency),
+		gettingConnPercent, waitGettingConn/float64(e.cfg.Concurrency),
 	)
 
 	s := &Summary{
@@ -210,6 +216,7 @@ Summary:
 		Version:           e.cfg.Version,
 		Waiting:           waiting,
 		OpenedConnections: e.newConnections.Load(),
+		MaxProcs:          runtime.GOMAXPROCS(0),
 	}
 	t, err := template.New("summary").Parse(tmpl)
 	if err != nil {

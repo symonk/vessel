@@ -147,7 +147,11 @@ func (h *HTTPRequester) spawn(count int) {
 				TLSHandshakeDone: func(state tls.ConnectionState, err error) {
 					traceData.TlsDone = time.Since(traceData.TlsStart)
 				},
+				GetConn: func(hostPort string) {
+					traceData.GettingConnection = time.Now()
+				},
 				GotConn: func(conn httptrace.GotConnInfo) {
+					traceData.GotConnection = time.Since(traceData.GettingConnection)
 					if conn.Reused {
 						traceData.ReusedConnection = true
 					}

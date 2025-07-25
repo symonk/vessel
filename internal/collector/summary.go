@@ -20,4 +20,5 @@ type Summary struct {
 	Connections       int
 	Waiting           string
 	OpenedConnections int64
+	MaxProcs          int
 }
