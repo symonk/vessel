@@ -56,8 +56,9 @@ func New(ctx context.Context, cfg *config.Config, collector collector.ResultColl
 					Next: &http.Transport{
 						Proxy:                 http.ProxyFromEnvironment,
 						ForceAttemptHTTP2:     true,
-						MaxIdleConns:          100,
-						MaxIdleConnsPerHost:   100,
+						MaxIdleConns:          1024,
+						MaxIdleConnsPerHost:   1024,
+						MaxConnsPerHost:       1024,
 						IdleConnTimeout:       90 * time.Second,
 						TLSHandshakeTimeout:   10 * time.Second,
 						ExpectContinueTimeout: 1 * time.Second,
@@ -142,6 +143,11 @@ func (h *HTTPRequester) spawn(count int) {
 				},
 				TLSHandshakeDone: func(state tls.ConnectionState, err error) {
 					traceData.TlsDone = time.Since(traceData.TlsStart)
+				},
+				GotConn: func(conn httptrace.GotConnInfo) {
+					if conn.Reused {
+						traceData.ReusedConnection = true
+					}
 				},
 			}
 

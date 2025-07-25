@@ -61,6 +61,7 @@ type EventCollector struct {
 	waitingDns           time.Duration
 	waitingTls           time.Duration
 	waitingConnect       time.Duration
+	newConnections       atomic.Int64
 }
 
 func New(writer io.Writer, cfg *config.Config) *EventCollector {
@@ -115,6 +116,12 @@ func (e *EventCollector) Record(response *http.Response, latency time.Duration, 
 	// of reading responses and avoiding attempting multiple reads etc.
 	e.bytesReceived.Add(bytesReceived)
 	e.bytesSent.Add(bytesSent)
+
+	// Keep track of keep-alives etc, useful for detecting if there is an issue
+	// with your server, or our client.
+	if !t.ReusedConnection {
+		e.newConnections.Add(1)
+	}
 }
 
 // Summarise calculates the final summary prior to exiting.
@@ -154,11 +161,10 @@ Summary:
   Errors:		{{.Errors}}
   BytesReceived:	{{.BytesReceived}}
   BytesSent:		{{.BytesSent}}
+  Connection Info:	{{.OpenedConnections}} connections opened
 
 {{.Results}}
 
-Raw (Debug):
-{{.RawErrors}}
 `
 	// TODO: Smarter use of different terms, if the test was < 1MB transffered for example
 	// fallback to bytesReceived/sec etc etc.
@@ -193,16 +199,17 @@ Raw (Debug):
 		Count:     e.latency.TotalCount(),
 		PerSecond: perSec,
 		// TODO: Less than millisecond precision support.
-		Latency:       latency,
-		BytesReceived: fmt.Sprintf("%.2fMB/s", receivedMegabytes),
-		BytesSent:     fmt.Sprintf("%.2fMB/s", sentMegabytes),
-		RawErrors:     e.rawErrors,
-		Errors:        e.errGrouper.String(),
-		RealTime:      done,
-		Results:       e.counter,
-		Connections:   e.cfg.Concurrency,
-		Version:       e.cfg.Version,
-		Waiting:       waiting,
+		Latency:           latency,
+		BytesReceived:     fmt.Sprintf("%.2fMB/s", receivedMegabytes),
+		BytesSent:         fmt.Sprintf("%.2fMB/s", sentMegabytes),
+		RawErrors:         e.rawErrors,
+		Errors:            e.errGrouper.String(),
+		RealTime:          done,
+		Results:           e.counter,
+		Connections:       e.cfg.Concurrency,
+		Version:           e.cfg.Version,
+		Waiting:           waiting,
+		OpenedConnections: e.newConnections.Load(),
 	}
 	t, err := template.New("summary").Parse(tmpl)
 	if err != nil {
