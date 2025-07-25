@@ -166,7 +166,7 @@ func ExecuteContext(ctx context.Context) error {
 func init() {
 	rootCmd.Flags().BoolVarP(&cfg.QuietSet, quietFlag, "q", false, "Suppresses output")
 	rootCmd.Flags().IntVarP(&cfg.MaxRPS, maxRPSFlag, "r", 0, "Rate limit requests per second")
-	rootCmd.Flags().IntVarP(&cfg.Concurrency, concurrencyFlag, "c", 10, "Number of concurrent requests")
+	rootCmd.Flags().IntVarP(&cfg.Concurrency, concurrencyFlag, "c", 10, "Number of concurrent workers dispatching requests")
 	rootCmd.Flags().DurationVarP(&cfg.Duration, durationFlag, "d", 0, "Duration to send requests for (must be parsable by time.ParseDuration)")
 	rootCmd.Flags().StringVarP(&cfg.Method, methodFlag, "m", "GET", "HTTP Verb to perform")
 	rootCmd.Flags().DurationVarP(&cfg.Timeout, timeoutFlag, "t", 0, "Per Request timeout before terminating the request (must be parsable by time.ParseDuration)")

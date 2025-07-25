@@ -42,7 +42,7 @@ go install github.com/symonk/vessel@latest
 ## 🚀 Quick Start
 
 ```bash
-vessel run https://yourwebsite.com -c 50 -d 10s
+vessel https://yourwebsite.com -c 50 -d 10s
 ```
 
 - `-c 50` — 50 concurrent connections
@@ -51,7 +51,7 @@ vessel run https://yourwebsite.com -c 50 -d 10s
 ### Example with Headers and JSON Payload
 
 ```bash
-vessel run https://api.yourwebsite.com/data \
+vessel https://api.yourwebsite.com/data \
   -X POST \
   -H "Authorization: Bearer TOKEN" \
   -H "Content-Type: application/json" \
@@ -99,6 +99,7 @@ Response Codes Breakdown
 | `--follow`      | `-f`  | bool      | `true`  | Automatically follow redirects                                                                    |
 | `--show-cfg`    | `-s`  | bool      | `false` | Print the current configuration to stdout on startup                                              |
 | `--insecure`    | `-i`  | bool      | `false` | Skip TLS server certificate and hostname verification (insecure, disables certificate validation) |
+| `--max-conns`   |       | int       | 1024    | Maximum number of connections (per host) that should be used                                      |
 
 
 ---

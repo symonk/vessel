@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync/atomic"
 )
 
@@ -69,6 +70,10 @@ func (e *ErrorGrouper) Record(err error) {
 		// server is more than likely failing to respond within the clients expectations.
 		e.store[Timeout].Add(1)
 
+	case strings.Contains(err.Error(), "connection refused"), strings.Contains(err.Error(), "connection reset by peer"):
+		// connection refused: TCP connection failures, nothing listening.
+		// connection reset by peer: TCP connect success, server crashed/closed/rejected/RST.
+		e.store[Connection].Add(1)
 	// TODO: Reading required on the *net.OpError and various other potential concrete error
 	// types exposed by Go's stdlib.
 	default:

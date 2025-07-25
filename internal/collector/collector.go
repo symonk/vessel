@@ -79,7 +79,7 @@ func New(writer io.Writer, cfg *config.Config) *EventCollector {
 // Record captures information about the completed request.
 // It keeps mutex locking to a minimum where possible and favours
 // CPU atomic operations where possible.
-func (e *EventCollector) Record(response *http.Response, latency time.Duration, bytesSent int64, bytesReceived int64, err error) {
+func (e *EventCollector) Record(response *http.Response, latency time.Duration, bytesReceived int64, bytesSent int64, err error) {
 	// It is possible response is nil in error cases.
 	// Keep a reference to the error, we will categorise them later
 	// based on the different types.
@@ -139,9 +139,10 @@ func (e *EventCollector) Summarise() {
 	seconds := max(1, int(e.cfg.Duration.Seconds()))
 	total := e.counter.Count()
 	perSec := total / seconds
-	latency := fmt.Sprintf("max=%dms, avg=%fms, p90=%dms, p95=%dms, p99=%dms",
+	latency := fmt.Sprintf("max=%dms, avg=%fms, p50=%dms, p90=%dms, p95=%dms, p99=%dms",
 		e.latency.Max(),
 		e.latency.Mean(),
+		e.latency.ValueAtQuantile(50),
 		e.latency.ValueAtQuantile(90),
 		e.latency.ValueAtQuantile(95),
 		e.latency.ValueAtQuantile(99),
@@ -164,7 +165,6 @@ Summary:
   Connection Info:	{{.OpenedConnections}} connections opened
 
 {{.Results}}
-
 `
 	// TODO: Smarter use of different terms, if the test was < 1MB transffered for example
 	// fallback to bytesReceived/sec etc etc.
@@ -200,8 +200,8 @@ Summary:
 		PerSecond: perSec,
 		// TODO: Less than millisecond precision support.
 		Latency:           latency,
-		BytesReceived:     fmt.Sprintf("%.2fMB/s", receivedMegabytes),
-		BytesSent:         fmt.Sprintf("%.2fMB/s", sentMegabytes),
+		BytesReceived:     fmt.Sprintf("%.2fMB", receivedMegabytes),
+		BytesSent:         fmt.Sprintf("%.2fMB", sentMegabytes),
 		RawErrors:         e.rawErrors,
 		Errors:            e.errGrouper.String(),
 		RealTime:          done,
