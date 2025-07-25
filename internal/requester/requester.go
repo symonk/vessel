@@ -56,13 +56,13 @@ func New(ctx context.Context, cfg *config.Config, collector collector.ResultColl
 					Next: &http.Transport{
 						Proxy:                 http.ProxyFromEnvironment,
 						ForceAttemptHTTP2:     true,
-						MaxIdleConns:          1024,
-						MaxIdleConnsPerHost:   1024,
-						MaxConnsPerHost:       1024,
+						MaxConnsPerHost:       cfg.MaxConnections,
 						IdleConnTimeout:       90 * time.Second,
 						TLSHandshakeTimeout:   10 * time.Second,
 						ExpectContinueTimeout: 1 * time.Second,
 						TLSClientConfig: &tls.Config{
+							// Skip server verification checks.  Enables testing against
+							// self signed/expired certs, wrong domain or untrusted.
 							InsecureSkipVerify: cfg.Insecure,
 						},
 					},

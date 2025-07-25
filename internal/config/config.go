@@ -23,6 +23,7 @@ type Config struct {
 	FollowRedirects bool
 	Version         string
 	Insecure        bool
+	MaxConnections  int
 }
 
 func (c *Config) String() string {

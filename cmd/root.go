@@ -27,22 +27,23 @@ const (
 
 const (
 	// flag long names
-	versionFlag     = "version"
-	quietFlag       = "quiet"
-	maxRPSFlag      = "max-rps"
-	concurrencyFlag = "concurrency"
-	durationFlag    = "duration"
-	methodFlag      = "method"
-	timeoutFlag     = "timeout"
-	http2Flag       = "http2"
-	hostHeaderFlag  = "host"
-	userAgentFlag   = "agent"
-	basicAuthFlag   = "basic"
-	headersFlag     = "headers"
-	numberFlag      = "number"
-	followFlag      = "follow"
-	showCfgFlag     = "show"
-	insecureFlag    = "insecure"
+	versionFlag        = "version"
+	quietFlag          = "quiet"
+	maxRPSFlag         = "max-rps"
+	concurrencyFlag    = "concurrency"
+	durationFlag       = "duration"
+	methodFlag         = "method"
+	timeoutFlag        = "timeout"
+	http2Flag          = "http2"
+	hostHeaderFlag     = "host"
+	userAgentFlag      = "agent"
+	basicAuthFlag      = "basic"
+	headersFlag        = "headers"
+	numberFlag         = "number"
+	followFlag         = "follow"
+	showCfgFlag        = "show"
+	insecureFlag       = "insecure"
+	maxConnectionsFlag = "max-conns"
 )
 
 const (
@@ -178,6 +179,7 @@ func init() {
 	rootCmd.Flags().BoolVarP(&cfg.FollowRedirects, followFlag, "f", true, "Automatically follow redirects")
 	rootCmd.Flags().BoolVarP(&showCfg, showCfgFlag, "s", false, "Print cfg to stdout on startup")
 	rootCmd.Flags().BoolVarP(&cfg.Insecure, insecureFlag, "i", false, "Do not verify server certificate and host name")
+	rootCmd.Flags().IntVar(&cfg.MaxConnections, maxConnectionsFlag, 1024, "Maximum connections (per host) the client will create/reuse")
 
 	// Specify required flags
 	rootCmd.MarkFlagsMutuallyExclusive(durationFlag, numberFlag)
