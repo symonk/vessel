@@ -82,17 +82,24 @@ Response Codes Breakdown
 ---
 
 ## ⚙️ Options
+| Flag            | Short | Type      | Default | Description                                                                                       |
+| --------------- | ----- | --------- | ------- | ------------------------------------------------------------------------------------------------- |
+| `--quiet`       | `-q`  | bool      | `false` | Suppresses all output                                                                             |
+| `--max-rps`     | `-r`  | int       | `0`     | Rate limit requests per second (0 means no limit)                                                 |
+| `--concurrency` | `-c`  | int       | `10`    | Number of concurrent requests                                                                     |
+| `--duration`    | `-d`  | duration  | `0`     | Duration to send requests for (must be parsable by `time.ParseDuration`)                          |
+| `--method`      | `-m`  | string    | `GET`   | HTTP method to perform (e.g., GET, POST)                                                          |
+| `--timeout`     | `-t`  | duration  | `0`     | Per request timeout before terminating the request (must be parsable by `time.ParseDuration`)     |
+| `--http2`       |       | bool      | `false` | Enable HTTP/2 support                                                                             |
+| `--host`        |       | string    | `""`    | Set a custom Host header                                                                          |
+| `--user-agent`  | `-u`  | string    | `""`    | Set a custom User-Agent header (always suffixed with the tool's user agent)                       |
+| `--basic-auth`  | `-b`  | string    | `""`    | Colon-separated `user:pass` for Basic Auth header                                                 |
+| `--headers`     | `-H`  | \[]string | `[]`    | Colon-separated `header:value` pairs for arbitrary HTTP headers (can be specified multiple times) |
+| `--number`      | `-n`  | int64     | `50`    | Total number of requests to send (cannot be used together with `--duration`)                      |
+| `--follow`      | `-f`  | bool      | `true`  | Automatically follow redirects                                                                    |
+| `--show-cfg`    | `-s`  | bool      | `false` | Print the current configuration to stdout on startup                                              |
+| `--insecure`    | `-i`  | bool      | `false` | Skip TLS server certificate and hostname verification (insecure, disables certificate validation) |
 
-| Flag         | Description                            |
-|--------------|----------------------------------------|
-| `-c`         | Number of concurrent workers           |
-| `-d`         | Duration of the test (e.g. `10s`, `1m`)|
-| `-X`         | HTTP method (GET, POST, etc.)          |
-| `-H`         | Custom headers                         |
-| `-b`         | Request body payload                   |
-| `--output`   | Output format (`json`, `csv`)          |
-| `--rate`     | Requests per second                    |
-| `--timeout`  | Request timeout                        |
 
 ---
 
