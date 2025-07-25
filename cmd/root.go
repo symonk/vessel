@@ -42,6 +42,7 @@ const (
 	numberFlag      = "number"
 	followFlag      = "follow"
 	showCfgFlag     = "show"
+	insecureFlag    = "insecure"
 )
 
 const (
@@ -176,6 +177,7 @@ func init() {
 	rootCmd.Flags().Int64VarP(&cfg.Amount, numberFlag, "n", 50, "The total number of requests, cannot be used with -d")
 	rootCmd.Flags().BoolVarP(&cfg.FollowRedirects, followFlag, "f", true, "Automatically follow redirects")
 	rootCmd.Flags().BoolVarP(&showCfg, showCfgFlag, "s", false, "Print cfg to stdout on startup")
+	rootCmd.Flags().BoolVarP(&cfg.Insecure, insecureFlag, "i", false, "Do not verify server certificate and host name")
 
 	// Specify required flags
 	rootCmd.MarkFlagsMutuallyExclusive(durationFlag, numberFlag)

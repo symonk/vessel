@@ -62,6 +62,9 @@ func New(ctx context.Context, cfg *config.Config, collector collector.ResultColl
 						IdleConnTimeout:       90 * time.Second,
 						TLSHandshakeTimeout:   10 * time.Second,
 						ExpectContinueTimeout: 1 * time.Second,
+						TLSClientConfig: &tls.Config{
+							InsecureSkipVerify: cfg.Insecure,
+						},
 					},
 				}),
 		},

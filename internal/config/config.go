@@ -22,6 +22,7 @@ type Config struct {
 	Amount          int64
 	FollowRedirects bool
 	Version         string
+	Insecure        bool
 }
 
 func (c *Config) String() string {
