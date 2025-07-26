@@ -154,9 +154,7 @@ func (h *HTTPRequester) spawn(count int) {
 				},
 				GotConn: func(conn httptrace.GotConnInfo) {
 					traceData.GotConnection = time.Since(traceData.GettingConnection)
-					if conn.Reused {
-						traceData.ReusedConnection = true
-					}
+					traceData.ReusedConnection = conn.Reused
 				},
 			}
 
