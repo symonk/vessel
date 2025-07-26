@@ -153,19 +153,23 @@ func (e *EventCollector) Summarise() {
 
 	// TODO: Be smarter here, capture terminal width and size appropriately.
 	const tmpl = `
-
 Running {{.RealTime}} test @ {{.Host}} [vessel-{{.Version}}]
-{{.Workers}} Workers| {{.MaxProcs}} Cores
+{{.Workers}} Workers | {{.MaxProcs}} Cores
+
+Execution: local
+Output:	   stdout
 
 Summary:
-  Requests:		{{.Count}} ({{.PerSecond}} per second)
-  Waiting:		{{.Waiting}}
-  Duration:		{{.RealTime}}
-  Latency:		{{.Latency}}
-  Errors:		{{.Errors}}
-  BytesReceived:	{{.BytesReceived}}
-  BytesSent:		{{.BytesSent}}
-  Connection Info:	{{.OpenedConnections}} connections opened
+  Requests:           {{.Count}} ({{.PerSecond}} per second)
+  Waiting:            {{.Waiting}}
+  Duration:           {{.RealTime}}
+  Latency:            {{.Latency}}
+  Errors:             {{.Errors}}
+  Bytes Received:     {{.BytesReceived}}
+  Bytes Sent:         {{.BytesSent}}
+  Conns Opened:       {{.OpenedConnections}}
+
+Results:
 
 {{.Results}}
 `
