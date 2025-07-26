@@ -155,7 +155,7 @@ func (e *EventCollector) Summarise() {
 	const tmpl = `
 
 Running {{.RealTime}} test @ {{.Host}} [vessel-{{.Version}}]
-{{.Connections}} Goroutines | {{.MaxProcs}} Cores
+{{.Workers}} Workers| {{.MaxProcs}} Cores
 
 Summary:
   Requests:		{{.Count}} ({{.PerSecond}} per second)
@@ -212,7 +212,7 @@ Summary:
 		Errors:            e.errGrouper.String(),
 		RealTime:          done,
 		Results:           e.counter,
-		Connections:       e.cfg.Concurrency,
+		Workers:           e.cfg.Concurrency,
 		Version:           e.cfg.Version,
 		Waiting:           waiting,
 		OpenedConnections: e.newConnections.Load(),

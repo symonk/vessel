@@ -17,7 +17,7 @@ type Summary struct {
 	Errors            string
 	RealTime          time.Duration
 	Results           *StatusCodeCounter
-	Connections       int
+	Workers           int
 	Waiting           string
 	OpenedConnections int64
 	MaxProcs          int
