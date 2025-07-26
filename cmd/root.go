@@ -79,7 +79,7 @@ var rootCmd = &cobra.Command{
 
 		// Do not allow spawning more workers than the number of requests
 		// to send for inefficiencies.
-		if cfg.Amount > 0 && cfg.Amount > int64(cfg.Concurrency) {
+		if cfg.Amount > 0 && cfg.Amount < int64(cfg.Concurrency) {
 			cfg.Concurrency = int(cfg.Amount)
 		}
 
