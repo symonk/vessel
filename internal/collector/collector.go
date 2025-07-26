@@ -5,22 +5,13 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"net/http"
 	"runtime"
-	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/HdrHistogram/hdrhistogram-go"
 	"github.com/symonk/vessel/internal/config"
-	"github.com/symonk/vessel/internal/trace"
+	"github.com/symonk/vessel/internal/stats"
 )
-
-// Recorder is the interface for something which records metrics from
-// a HTTP Request->Response interactions.
-type Recorder interface {
-	Record(response *http.Response, latency time.Duration, receivedBytes int64, sentBytes int64, err error)
-}
 
 // Summariser is the interface for something which can display summary
 // information.
@@ -30,7 +21,6 @@ type Summariser interface {
 
 type ResultCollector interface {
 	Summariser
-	Recorder
 }
 
 // EventCollector collects execution data during the lifecycle of
@@ -55,19 +45,19 @@ type EventCollector struct {
 	collectionRegistered time.Time
 	rawErrors            error
 	errGrouper           *ErrorGrouper
-	mu                   sync.Mutex
 	latency              hdrhistogram.Histogram
-	bytesReceived        atomic.Int64
-	bytesSent            atomic.Int64
+	bytesReceived        int64
+	bytesSent            int64
 	waitingDns           time.Duration
 	waitingTls           time.Duration
 	waitingConnect       time.Duration
-	newConnections       atomic.Int64
+	newConnections       int64
 	waitingGetConn       time.Duration
+	ingress              chan *stats.Stats
 }
 
-func New(writer io.Writer, cfg *config.Config) *EventCollector {
-	return &EventCollector{
+func New(ingress chan *stats.Stats, writer io.Writer, cfg *config.Config) *EventCollector {
+	e := &EventCollector{
 		counter:              NewStatusCodeCounter(),
 		cfg:                  cfg,
 		writer:               writer,
@@ -75,56 +65,47 @@ func New(writer io.Writer, cfg *config.Config) *EventCollector {
 		latency:              *hdrhistogram.New(1, 60000, 3),
 		rawErrors:            nil,
 		errGrouper:           NewErrGrouper(),
+		ingress:              ingress,
 	}
+	go e.listen()
+	return e
 }
 
-// Record captures information about the completed request.
-// It keeps mutex locking to a minimum where possible and favours
-// CPU atomic operations where possible.
-func (e *EventCollector) Record(response *http.Response, latency time.Duration, bytesReceived int64, bytesSent int64, err error) {
-	// It is possible response is nil in error cases.
-	// Keep a reference to the error, we will categorise them later
-	// based on the different types.
-	if err != nil {
-		e.mu.Lock()
-		defer e.mu.Unlock()
-		e.rawErrors = errors.Join(e.rawErrors, err)
-		e.errGrouper.Record(err)
-		// TODO: Error grouping for smarter summarising.
-		// TODO: Implement a way to 'classify' the errors into appropriate groups.
-		return
+// listen waits for stats from the worker pool before incremental internal
+// values in preparation for summary generation later.
+//
+// For now this is a single listener, but eventually the channel can be fanned
+// out for reads and merged back into a single result chan for efficiency.
+func (e *EventCollector) listen() {
+	fmt.Println("listening for stats")
+	for stat := range e.ingress {
+		err := stat.Err
+		if err != nil {
+			e.rawErrors = errors.Join(e.rawErrors, err)
+			e.errGrouper.Record(err)
+		}
+		e.waitingDns += stat.TimeOnDns
+		e.waitingTls += stat.TimeOnTls
+		e.waitingConnect += stat.TimeOnConnect
+		e.waitingGetConn += stat.TimeOnConn
+
+		// We have a semi-successful response (in that sense that no error was returned)
+		// Capture the histogram data for the latency of the response.
+		e.latency.RecordValue(stat.Latency.Milliseconds())
+		e.counter.Increment(stat.StatusCode)
+
+		// Track the byte size of the initial request aswell as content type of
+		// the response from the server.  The collector is not responsible for
+		// reading the response, this should be handled elsewhere to ensure safety
+		// of reading responses and avoiding attempting multiple reads etc.
+		e.bytesReceived += stat.BytesReceived
+		e.bytesSent += stat.BytesSent
+
+		// Keep track of keep-alives etc, useful for detecting if there is an issue
+		// with your server, or our client.
+		e.newConnections += stat.ReusedConn
 	}
 
-	// Pull out 'trace' data from the requests to paint a better picture in the summary
-	// of how time was spent from a granular point of view.
-	v := response.Request.Context().Value(trace.TraceDataKey)
-	t, ok := v.(*trace.Trace)
-	if ok {
-		e.mu.Lock()
-		e.waitingDns += t.DnsDone
-		e.waitingTls += t.TlsDone
-		e.waitingConnect += t.ConnectDone
-		e.waitingGetConn += t.GotConnection
-		e.mu.Unlock()
-	}
-
-	// We have a semi-successful response (in that sense that no error was returned)
-	// Capture the histogram data for the latency of the response.
-	e.latency.RecordValue(latency.Milliseconds())
-	e.counter.Increment(response.StatusCode)
-
-	// Track the byte size of the initial request aswell as content type of
-	// the response from the server.  The collector is not responsible for
-	// reading the response, this should be handled elsewhere to ensure safety
-	// of reading responses and avoiding attempting multiple reads etc.
-	e.bytesReceived.Add(bytesReceived)
-	e.bytesSent.Add(bytesSent)
-
-	// Keep track of keep-alives etc, useful for detecting if there is an issue
-	// with your server, or our client.
-	if !t.ReusedConnection {
-		e.newConnections.Add(1)
-	}
 }
 
 // Summarise calculates the final summary prior to exiting.
@@ -179,11 +160,11 @@ Waiting:	{{.Waiting}}
 `
 	// TODO: Smarter use of different terms, if the test was < 1MB transffered for example
 	// fallback to bytesReceived/sec etc etc.
-	bytesReceived := e.bytesReceived.Load()
+	bytesReceived := e.bytesReceived
 	receivedBytesPerSecond := (bytesReceived / int64(seconds))
 	receivedMegabytes := float64(receivedBytesPerSecond) / 1_000_000
 
-	bytesSent := e.bytesSent.Load()
+	bytesSent := e.bytesSent
 	sentBytesPerSecond := (bytesSent / int64(seconds))
 	sentMegabytes := float64(sentBytesPerSecond) / 1_000_000
 
@@ -225,7 +206,7 @@ Waiting:	{{.Waiting}}
 		Workers:           e.cfg.Concurrency,
 		Version:           e.cfg.Version,
 		Waiting:           waiting,
-		OpenedConnections: e.newConnections.Load(),
+		OpenedConnections: e.newConnections,
 		MaxProcs:          runtime.GOMAXPROCS(0),
 		BytesTotal:        fmt.Sprintf("%.2FMB", bytesTotal),
 	}

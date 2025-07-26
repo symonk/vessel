@@ -13,7 +13,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/symonk/vessel/internal/collector"
 	"github.com/symonk/vessel/internal/config"
-	"github.com/symonk/vessel/internal/requester"
+	"github.com/symonk/vessel/internal/coordinator"
+	"github.com/symonk/vessel/internal/stats"
 	"github.com/symonk/vessel/internal/validation"
 )
 
@@ -88,7 +89,8 @@ var rootCmd = &cobra.Command{
 		}
 
 		// build the single req req to clone later.
-		req, err := requester.GenerateTemplateRequest(cfg)
+		// TODO: should not be the responsibility of a 'coordinator'.
+		req, err := coordinator.GenerateTemplateRequest(cfg)
 		if err != nil {
 			return fmt.Errorf("unable to create request: %v", err)
 		}
@@ -147,22 +149,25 @@ var rootCmd = &cobra.Command{
 		}
 		req.Header.Set(userAgentHeader, cfg.UserAgent)
 
-		collector := collector.New(out, cfg)
+		resultsChan := make(chan *stats.Stats, cfg.Concurrency)
+		collector := collector.New(resultsChan, out, cfg)
 
-		// command ctx already has the signalling capabilities.
-		// if duration is specified, wrap the ctx with that dead line
-		// to cause Go() to exit and Wait() to unblock.
+		// Enable signal handling to abort when requested (gracefully)
+		// finish in flight requests and summarise work that was completed
+		// prior.
 		parent := cmd.Context()
 		ctx, cancel := signal.NotifyContext(parent, os.Interrupt, syscall.SIGTERM)
 		defer cancel()
 
-		requester := requester.New(
+		coordinator := coordinator.New(
 			ctx,
+			resultsChan,
 			cfg,
 			collector,
 			req,
 		)
-		requester.Wait()
+		coordinator.Wait()
+		close(resultsChan)
 		collector.Summarise()
 		return nil
 	},

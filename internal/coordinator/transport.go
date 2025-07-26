@@ -1,4 +1,4 @@
-package requester
+package coordinator
 
 import (
 	"net/http"
