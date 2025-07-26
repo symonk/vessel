@@ -63,20 +63,28 @@ vessel https://api.yourwebsite.com/data \
 ## 📊 Output Sample
 
 ```text
-Running 10.025843334s test @ http://localhost:8000 [vessel-v0.0.1]
-30 Connections
+ _   _                    _
+| | | |			 | |
+| | | | ___  ___ ___  ___| |
+| | | |/ ⚡\/ __/ __|/ ⚡\ |
+\ \_/ /  __/\__ \__ \  __/ |
+ \___/ \___||___/___/\___|_| https://github.com/symonk/vessel
 
-Summary:
-  Requests:             21074 (2107 per second)
-  Waiting:              [41.00%] Resolving DNS (4.10s), [0.00%] TLS Handshake (0.00s), [27.66%] Connecting (2.77s)
-  Duration:             10.025843334s
-  Latency:              max=55ms, avg=13.705419ms, p90=15ms, p95=16ms, p99=29ms
-  Errors:               Total: 0: Timeout(0), Cancelled(0), Connection(0), Unknown(0)
-  BytesReceived:        0.00MB/s
-  BytesSent:            3.90MB/s
+Running test @ http://localhost:8000 [vessel-v0.0.1]
+Workers: 20
+Cores: 10
+
+complete [⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡] 6.051627167s
+
+Requests:	340949 (56825/second)
+bytes:		Received(0.91MB) | Sent(0.00MB) | Total(0.91MB)
+Latency:	max=4ms, avg=0.010004ms, p50=0ms, p90=0ms, p95=0ms, p99=0ms
+Errored:	Total: 0: Timeout(0), Cancelled(0), Connection(0), Unknown(0)
+Conns:		581
+Waiting:	[12.13%] Resolving DNS (0.04s), [0.00%] TLS Handshake (0.00s), [7.27%] Connecting (0.02s) [25.22%] Getting Connections (0.08s)
 
 Response Codes Breakdown
-        [200]: 21074
+	[200]: 340951
 ```
 
 ---

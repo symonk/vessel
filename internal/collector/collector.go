@@ -171,7 +171,7 @@ bytes:		Received({{.BytesReceived}}) | Sent({{.BytesSent}}) | Total({{.BytesTota
 Latency:	{{.Latency}}
 Errored:	{{.Errors}}
 Conns:		{{.OpenedConnections}}
-TimeSpent:	{{.Waiting}}
+Waiting:	{{.Waiting}}
 
 {{.Results}}
 `
