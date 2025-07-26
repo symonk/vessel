@@ -7,10 +7,13 @@ type Summary struct {
 	Version       string
 	Duration      string
 	Count         int64
-	PerSecond     int
+	PerSecond     float64
 	Latency       string
 	BytesReceived string
 	BytesSent     string
+	RPS           string
+	SPS           string
+	TPS           string
 	// TODO: This will likely go away, debug aid for now while building the error grouper.
 	// This is a single 'joined' error for now.
 	RawErrors         error

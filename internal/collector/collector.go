@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"math"
 	"runtime"
 	"time"
 
@@ -45,6 +46,7 @@ type EventCollector struct {
 	collectionRegistered time.Time
 	rawErrors            error
 	errGrouper           *ErrorGrouper
+	seen                 int64
 	latency              hdrhistogram.Histogram
 	bytesReceived        int64
 	bytesSent            int64
@@ -53,7 +55,7 @@ type EventCollector struct {
 	waitingConnect       time.Duration
 	newConnections       int64
 	waitingGetConn       time.Duration
-	ingress              chan *stats.Stats
+	resultsCh            chan *stats.Stats
 }
 
 func New(ingress chan *stats.Stats, writer io.Writer, cfg *config.Config) *EventCollector {
@@ -65,7 +67,7 @@ func New(ingress chan *stats.Stats, writer io.Writer, cfg *config.Config) *Event
 		latency:              *hdrhistogram.New(1, 60000, 3),
 		rawErrors:            nil,
 		errGrouper:           NewErrGrouper(),
-		ingress:              ingress,
+		resultsCh:            ingress,
 	}
 	go e.listen()
 	return e
@@ -77,8 +79,7 @@ func New(ingress chan *stats.Stats, writer io.Writer, cfg *config.Config) *Event
 // For now this is a single listener, but eventually the channel can be fanned
 // out for reads and merged back into a single result chan for efficiency.
 func (e *EventCollector) listen() {
-	fmt.Println("listening for stats")
-	for stat := range e.ingress {
+	for stat := range e.resultsCh {
 		err := stat.Err
 		if err != nil {
 			e.rawErrors = errors.Join(e.rawErrors, err)
@@ -104,6 +105,7 @@ func (e *EventCollector) listen() {
 		// Keep track of keep-alives etc, useful for detecting if there is an issue
 		// with your server, or our client.
 		e.newConnections += stat.ReusedConn
+		e.seen += 1
 	}
 
 }
@@ -119,19 +121,6 @@ func (e *EventCollector) listen() {
 // TODO: Wire in latency breakdowns from httptrace for:
 // TODO: DNS resolution, TCP connection time, TLS handshake time, Time to first byte, total response time.
 func (e *EventCollector) Summarise() {
-	done := time.Since(e.collectionRegistered)
-	seconds := max(1, int(e.cfg.Duration.Seconds()))
-	total := e.counter.Count()
-	perSec := total / seconds
-	latency := fmt.Sprintf("max=%dms, avg=%fms, p50=%dms, p90=%dms, p95=%dms, p99=%dms",
-		e.latency.Max(),
-		e.latency.Mean(),
-		e.latency.ValueAtQuantile(50),
-		e.latency.ValueAtQuantile(90),
-		e.latency.ValueAtQuantile(95),
-		e.latency.ValueAtQuantile(99),
-	)
-
 	// TODO: Be smarter here, capture terminal width and size appropriately.
 	const tmpl = `
  _   _                    _ 
@@ -145,30 +134,47 @@ Running test @ {{.Host}} [vessel-{{.Version}}]
 Workers: {{.Workers}}
 Cores: {{.MaxProcs}}
 
-complete [⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡] {{.RealTime}}
-
+WallTime:	{{.RealTime}}
 Requests:	{{.Count}} ({{.PerSecond}}/second)
-bytes:		Received({{.BytesReceived}}) | Sent({{.BytesSent}}) | Total({{.BytesTotal}})
+Received	{{.BytesReceived}} ({{.RPS}})
+Sent		{{.BytesSent}} ({{.SPS}})
+Throughput	{{.BytesTotal}} ({{.TPS}})
 Latency:	{{.Latency}}
 Errored:	{{.Errors}}
 Conns:		{{.OpenedConnections}}
 Waiting:	{{.Waiting}}
 
 {{.Results}}
-
-{{.RawErrors}}
 `
-	// TODO: Smarter use of different terms, if the test was < 1MB transffered for example
-	// fallback to bytesReceived/sec etc etc.
-	bytesReceived := e.bytesReceived
-	receivedBytesPerSecond := (bytesReceived / int64(seconds))
-	receivedMegabytes := float64(receivedBytesPerSecond) / 1_000_000
 
-	bytesSent := e.bytesSent
-	sentBytesPerSecond := (bytesSent / int64(seconds))
-	sentMegabytes := float64(sentBytesPerSecond) / 1_000_000
+	// TODO: Priority focus on decoupling and improving collection and summarisation.
+	// TODO: This logic is a hack and a mess right now.
 
-	bytesTotal := receivedMegabytes + sentMegabytes
+	wall := time.Since(e.collectionRegistered)
+	elapsedSeconds := wall.Seconds()
+	latency := fmt.Sprintf("max=%dms, avg=%fms, p50=%dms, p90=%dms, p95=%dms, p99=%dms",
+		e.latency.Max(),
+		e.latency.Mean(),
+		e.latency.ValueAtQuantile(50),
+		e.latency.ValueAtQuantile(90),
+		e.latency.ValueAtQuantile(95),
+		e.latency.ValueAtQuantile(99),
+	)
+
+	// calculate the total number of requests processed by the total seconds of execution
+	// no per-work considerations are required here.
+	// Report the requests per second with two decimal point precision.
+	seenPerSecond := math.Round(float64(e.seen)/wall.Seconds()*100) / 100
+
+	// calculate the total bytes received and sent, aswell as the rate in
+	// which transfer was happening per second.
+	// TODO: Prio - this is completely broken!
+	receivedSecond := (e.bytesReceived / int64(elapsedSeconds))
+	receivedMb := e.bytesReceived / 1_000_000
+	sentSecond := (e.bytesSent / int64(elapsedSeconds))
+	sentMb := e.bytesSent / 1_000_000
+	bytesTotal := receivedMb + sentMb
+	totalSecond := bytesTotal / 1_000_000
 
 	// calculate granular breakdowns
 	waitDns := e.waitingDns.Seconds()
@@ -194,14 +200,17 @@ Waiting:	{{.Waiting}}
 		Host:      e.cfg.Endpoint,
 		Duration:  e.cfg.Duration.String(),
 		Count:     e.latency.TotalCount(),
-		PerSecond: perSec,
+		PerSecond: float64(seenPerSecond),
 		// TODO: Less than millisecond precision support.
 		Latency:           latency,
-		BytesReceived:     fmt.Sprintf("%.2fMB", receivedMegabytes),
-		BytesSent:         fmt.Sprintf("%.2fMB", sentMegabytes),
+		BytesReceived:     fmt.Sprintf("%dMB", receivedMb),
+		BytesSent:         fmt.Sprintf("%dMB", sentMb),
+		RPS:               fmt.Sprintf("%dMB/s", receivedSecond),
+		SPS:               fmt.Sprintf("%dMB/s", sentSecond),
+		TPS:               fmt.Sprintf("%dMB/s", totalSecond),
 		RawErrors:         e.rawErrors,
 		Errors:            e.errGrouper.String(),
-		RealTime:          done,
+		RealTime:          wall,
 		Results:           e.counter,
 		Workers:           e.cfg.Concurrency,
 		Version:           e.cfg.Version,

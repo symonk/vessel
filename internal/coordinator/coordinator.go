@@ -74,15 +74,15 @@ func New(ctx context.Context, out chan<- *stats.Stats, cfg *config.Config, colle
 
 // Wait waits until all requests are finished and all workers
 // have cleanly shutdown.
-func (h *RequestCoordinator) Wait() {
-	h.wg.Wait()
+func (r *RequestCoordinator) Wait() {
+	r.wg.Wait()
 }
 
 // spawn fans out workers in the pool upto the configured
 // concurrency.
-func (h *RequestCoordinator) spawn(count int) {
+func (r *RequestCoordinator) spawn(count int) {
 	for range count {
-		w := worker.New(h.client, h.workerCh, h.out, &h.wg, h.ctx, h.cfg)
+		w := worker.New(r.client, r.workerCh, r.out, &r.wg, r.ctx, r.cfg)
 		go w.Accept()
 	}
 
@@ -91,14 +91,14 @@ func (h *RequestCoordinator) spawn(count int) {
 	// for loading requests onto the queues differs.
 	var seen int64
 	var tick <-chan time.Time
-	if dur := h.cfg.Duration; dur > 0 {
+	if dur := r.cfg.Duration; dur > 0 {
 		ticker := time.NewTicker(dur)
 		defer ticker.Stop()
 		tick = ticker.C
 	}
 
 	defer func() {
-		close(h.workerCh)
+		close(r.workerCh)
 	}()
 	for {
 		select {
@@ -107,17 +107,17 @@ func (h *RequestCoordinator) spawn(count int) {
 			// gracefully exit.
 			// nil channel otherwise (never selects/blocks)
 			return
-		case <-h.ctx.Done():
+		case <-r.ctx.Done():
 			// A signal was received, cause a graceful exit
 			return
 		default:
 			// keep track of seen requests and keep providing requests
 			// to workers as fast as possible.
-			if tick == nil && seen == h.cfg.Amount {
+			if tick == nil && seen == r.cfg.Amount {
 				return
 			}
 			seen++
-			h.workerCh <- h.template
+			r.workerCh <- r.template
 		}
 	}
 }

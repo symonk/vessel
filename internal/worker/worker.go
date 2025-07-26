@@ -113,13 +113,12 @@ func (w *Worker) report(trace *trace.Trace, response *http.Response, began time.
 	s.TimeOnTls = trace.TlsDone
 	s.TimeOnConn = trace.GotConnection
 	s.TimeOnConnect = trace.ConnectDone
+	s.StatusCode = response.StatusCode
 
-	for {
-		select {
-		case w.resultsCh <- s:
-		case <-w.root.Done():
-			return
-		}
+	select {
+	case w.resultsCh <- s:
+	case <-w.root.Done():
+		return
 	}
 }
 
