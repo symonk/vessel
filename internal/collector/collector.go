@@ -217,7 +217,7 @@ Waiting:	{{.Waiting}}
 		Waiting:           waiting,
 		OpenedConnections: e.newConnections,
 		MaxProcs:          runtime.GOMAXPROCS(0),
-		BytesTotal:        fmt.Sprintf("%.2FMB", bytesTotal),
+		BytesTotal:        fmt.Sprintf("%dMB", bytesTotal),
 	}
 	t, err := template.New("summary").Parse(tmpl)
 	if err != nil {
