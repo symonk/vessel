@@ -46,7 +46,8 @@ const (
 	maxConnectionsFlag = "max-conns"
 	certFlag           = "cert"
 	keyFlag            = "key"
-	cache              = "cache"
+	cacheFlag          = "cache"
+	debugFlag          = "debug"
 )
 
 const (
@@ -173,6 +174,7 @@ func ExecuteContext(ctx context.Context) error {
 }
 
 func init() {
+	rootCmd.Flags().BoolVar(&cfg.Debug, debugFlag, false, "Enabled enhanced debugging information (WARNING: noisy!)")
 	rootCmd.Flags().BoolVarP(&cfg.QuietSet, quietFlag, "q", false, "Suppresses output")
 	rootCmd.Flags().IntVarP(&cfg.MaxRPS, maxRPSFlag, "r", 0, "Rate limit requests per second")
 	rootCmd.Flags().IntVarP(&cfg.Concurrency, concurrencyFlag, "c", 10, "Number of concurrent workers dispatching requests")
@@ -190,7 +192,7 @@ func init() {
 	rootCmd.Flags().BoolVarP(&cfg.Insecure, insecureFlag, "i", false, "Do not verify server certificate and host name")
 	rootCmd.Flags().IntVar(&cfg.MaxConnections, maxConnectionsFlag, 1024, "Maximum connections (per host) the client will create/reuse")
 	// TODO: Document cache, need to implement it too.
-	rootCmd.Flags().BoolVar(&cfg.Cache, cache, false, "Cache DNS lookups to minimise time spent in DNS parts of each request")
+	rootCmd.Flags().BoolVar(&cfg.Cache, cacheFlag, false, "Cache DNS lookups to minimise time spent in DNS parts of each request")
 	rootCmd.Flags().StringVar(&cfg.Certificate, certFlag, "", "Public certificate for identification for mutual TLS")
 	rootCmd.Flags().StringVarP(&cfg.PrivateKey, keyFlag, "k", "", "Private key for mutual TLS")
 	// TODO: Consider --ca to specify a custom root CA bundle instead of skipping validation

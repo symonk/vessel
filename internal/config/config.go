@@ -20,6 +20,7 @@ type Config struct {
 	BasicAuth       string
 	Headers         []string
 	Amount          int64
+	Debug           bool
 	FollowRedirects bool
 	Version         string
 	Cache           bool
