@@ -24,6 +24,8 @@ type Config struct {
 	Version         string
 	Insecure        bool
 	MaxConnections  int
+	Certificate     string
+	PrivateKey      string
 }
 
 func (c *Config) String() string {

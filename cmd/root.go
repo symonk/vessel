@@ -44,6 +44,8 @@ const (
 	showCfgFlag        = "show"
 	insecureFlag       = "insecure"
 	maxConnectionsFlag = "max-conns"
+	certFlag           = "cert"
+	keyFlag            = "key"
 )
 
 const (
@@ -74,6 +76,9 @@ var rootCmd = &cobra.Command{
 		if cfg.Amount == 0 && cfg.Duration == 0 {
 			return errors.New("-n or -d must not be zero when supplied")
 		}
+
+		// TODO: if num is set with concurrency, if num < num workers, set
+		// num workers to num.
 
 		// build the single req req to clone later.
 		req, err := requester.GenerateTemplateRequest(cfg)
@@ -180,9 +185,16 @@ func init() {
 	rootCmd.Flags().BoolVarP(&showCfg, showCfgFlag, "s", false, "Print cfg to stdout on startup")
 	rootCmd.Flags().BoolVarP(&cfg.Insecure, insecureFlag, "i", false, "Do not verify server certificate and host name")
 	rootCmd.Flags().IntVar(&cfg.MaxConnections, maxConnectionsFlag, 1024, "Maximum connections (per host) the client will create/reuse")
+	rootCmd.Flags().StringVar(&cfg.Certificate, certFlag, "", "Public certificate for identification for mutual TLS")
+	rootCmd.Flags().StringVarP(&cfg.PrivateKey, keyFlag, "k", "", "Private key for mutual TLS")
+	// TODO: Consider --ca to specify a custom root CA bundle instead of skipping validation
+	// TODO: Consider --cert-password if supporting encrypted private keys
 
 	// Specify required flags
 	rootCmd.MarkFlagsMutuallyExclusive(durationFlag, numberFlag)
+
+	// Ensure if provided either of cert/key, that both are provided.
+	rootCmd.MarkFlagsRequiredTogether(certFlag, keyFlag)
 
 	// Only allow a single non flag argument, which is the url/endpoint.
 	rootCmd.Args = cobra.ExactArgs(1)
