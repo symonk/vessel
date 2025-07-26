@@ -77,8 +77,11 @@ var rootCmd = &cobra.Command{
 			return errors.New("-n or -d must not be zero when supplied")
 		}
 
-		// TODO: if num is set with concurrency, if num < num workers, set
-		// num workers to num.
+		// Do not allow spawning more workers than the number of requests
+		// to send for inefficiencies.
+		if cfg.Amount > 0 && cfg.Amount > int64(cfg.Concurrency) {
+			cfg.Concurrency = int(cfg.Amount)
+		}
 
 		// build the single req req to clone later.
 		req, err := requester.GenerateTemplateRequest(cfg)
