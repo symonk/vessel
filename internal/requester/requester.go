@@ -122,6 +122,8 @@ func (h *HTTPRequester) spawn(count int) {
 			if tick == nil && seen == h.cfg.Amount {
 				return
 			}
+
+			// TODO: Heap allocation hotspot, stuffing actual structs into contexts too!
 			ctx, cancel := getCtx(h.cfg.Duration)
 			defer cancel()
 			r := h.template.Clone(ctx)

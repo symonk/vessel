@@ -22,6 +22,7 @@ type Config struct {
 	Amount          int64
 	FollowRedirects bool
 	Version         string
+	Cache           bool
 	Insecure        bool
 	MaxConnections  int
 	Certificate     string

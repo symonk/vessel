@@ -46,6 +46,7 @@ const (
 	maxConnectionsFlag = "max-conns"
 	certFlag           = "cert"
 	keyFlag            = "key"
+	cache              = "cache"
 )
 
 const (
@@ -188,6 +189,8 @@ func init() {
 	rootCmd.Flags().BoolVarP(&showCfg, showCfgFlag, "s", false, "Print cfg to stdout on startup")
 	rootCmd.Flags().BoolVarP(&cfg.Insecure, insecureFlag, "i", false, "Do not verify server certificate and host name")
 	rootCmd.Flags().IntVar(&cfg.MaxConnections, maxConnectionsFlag, 1024, "Maximum connections (per host) the client will create/reuse")
+	// TODO: Document cache, need to implement it too.
+	rootCmd.Flags().BoolVar(&cfg.Cache, cache, false, "Cache DNS lookups to minimise time spent in DNS parts of each request")
 	rootCmd.Flags().StringVar(&cfg.Certificate, certFlag, "", "Public certificate for identification for mutual TLS")
 	rootCmd.Flags().StringVarP(&cfg.PrivateKey, keyFlag, "k", "", "Private key for mutual TLS")
 	// TODO: Consider --ca to specify a custom root CA bundle instead of skipping validation

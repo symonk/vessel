@@ -8,6 +8,7 @@ import (
 
 	"net"
 
+	"github.com/symonk/profiler"
 	"github.com/symonk/vessel/cmd"
 )
 
@@ -17,10 +18,11 @@ func init() {
 }
 
 func main() {
+	defer profiler.Start(profiler.WithHeapProfiler()).Stop()
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
 	defer cancel()
 	if err := cmd.ExecuteContext(ctx); err != nil {
 		os.Exit(1)
 	}
-
+	// TODO: Remove later
 }
