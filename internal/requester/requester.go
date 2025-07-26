@@ -86,11 +86,12 @@ func (h *HTTPRequester) Wait() {
 // concurrency.
 func (h *HTTPRequester) spawn(count int) {
 	// Asynchronously start worker routines
-	go func() {
-		for range count {
-			go worker(h.collector, &h.wg, h.client, h.workerCh)
-		}
-	}()
+	for range count {
+		go worker(h.collector, &h.wg, h.client, h.workerCh)
+	}
+
+	// create a root base ctx for efficiency
+	root := context.Background()
 
 	// Asynchronously load requests into the queue.
 	// Depending on -d or -a (duration || amount) the strategy
@@ -125,7 +126,7 @@ func (h *HTTPRequester) spawn(count int) {
 
 			// TODO: Heap allocation hotspot, stuffing actual structs into contexts too!
 			ctx, cancel := getCtx(h.cfg.Duration)
-			defer cancel()
+			defer cancel() // TODO: deferring in a loop
 			r := h.template.Clone(ctx)
 
 			// establish some trace vars
@@ -162,7 +163,7 @@ func (h *HTTPRequester) spawn(count int) {
 			// the client houses a total timeout provided on the command line
 			// so a background ctx is sufficient here.  Store the tracing
 			// information within it for later use.
-			c := context.WithValue(context.Background(), trace.TraceDataKey, traceData)
+			c := context.WithValue(root, trace.TraceDataKey, traceData)
 			r = r.WithContext(httptrace.WithClientTrace(c, tracer))
 
 			seen++

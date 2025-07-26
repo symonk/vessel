@@ -174,6 +174,8 @@ Conns:		{{.OpenedConnections}}
 Waiting:	{{.Waiting}}
 
 {{.Results}}
+
+{{.RawErrors}}
 `
 	// TODO: Smarter use of different terms, if the test was < 1MB transffered for example
 	// fallback to bytesReceived/sec etc etc.
