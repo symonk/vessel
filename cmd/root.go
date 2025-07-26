@@ -18,6 +18,8 @@ import (
 )
 
 // TODO: Wire in cobra auto completion
+// TODO: Consider iterations of config, allow ramp up/down to be iterated n times?
+// TODO: Super end game of 'distributed load' capabilities, maybe something like a swarm/master node that delegates?
 
 const (
 	// Version holds the current version of the binary.

@@ -153,23 +153,25 @@ func (e *EventCollector) Summarise() {
 
 	// TODO: Be smarter here, capture terminal width and size appropriately.
 	const tmpl = `
-Running {{.RealTime}} test @ {{.Host}} [vessel-{{.Version}}]
-{{.Workers}} Workers | {{.MaxProcs}} Cores
+ _   _                    _ 
+| | | |			 | |
+| | | | ___  ___ ___  ___| |
+| | | |/ ⚡\/ __/ __|/ ⚡\ |
+\ \_/ /  __/\__ \__ \  __/ |
+ \___/ \___||___/___/\___|_| https://github.com/symonk/vessel
+                            
+Running test @ {{.Host}} [vessel-{{.Version}}]
+Workers: {{.Workers}}
+Cores: {{.MaxProcs}}
 
-Execution: local
-Output:	   stdout
+complete [⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡] {{.RealTime}}
 
-Summary:
-  Requests:           {{.Count}} ({{.PerSecond}} per second)
-  Waiting:            {{.Waiting}}
-  Duration:           {{.RealTime}}
-  Latency:            {{.Latency}}
-  Errors:             {{.Errors}}
-  Bytes Received:     {{.BytesReceived}}
-  Bytes Sent:         {{.BytesSent}}
-  Conns Opened:       {{.OpenedConnections}}
-
-Results:
+Requests:	{{.Count}} ({{.PerSecond}}/second)
+bytes:		Received({{.BytesReceived}}) | Sent({{.BytesSent}}) | Total({{.BytesTotal}})
+Latency:	{{.Latency}}
+Errored:	{{.Errors}}
+Conns:		{{.OpenedConnections}}
+TimeSpent:	{{.Waiting}}
 
 {{.Results}}
 `
@@ -182,6 +184,8 @@ Results:
 	bytesSent := e.bytesSent.Load()
 	sentBytesPerSecond := (bytesSent / int64(seconds))
 	sentMegabytes := float64(sentBytesPerSecond) / 1_000_000
+
+	bytesTotal := receivedMegabytes + sentMegabytes
 
 	// calculate granular breakdowns
 	waitDns := e.waitingDns.Seconds()
@@ -221,6 +225,7 @@ Results:
 		Waiting:           waiting,
 		OpenedConnections: e.newConnections.Load(),
 		MaxProcs:          runtime.GOMAXPROCS(0),
+		BytesTotal:        fmt.Sprintf("%.2FMB", bytesTotal),
 	}
 	t, err := template.New("summary").Parse(tmpl)
 	if err != nil {
@@ -230,6 +235,7 @@ Results:
 	outErr := t.Execute(e.writer, s)
 	if outErr != nil {
 		// TODO: Improve
-		fmt.Println("unable to show summary", err)
+		fmt.Println()
+		fmt.Println("unable to show summary", outErr)
 	}
 }

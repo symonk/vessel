@@ -21,4 +21,5 @@ type Summary struct {
 	Waiting           string
 	OpenedConnections int64
 	MaxProcs          int
+	BytesTotal        string
 }
